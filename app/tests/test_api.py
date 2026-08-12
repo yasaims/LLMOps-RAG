@@ -1,0 +1,104 @@
+from unittest.mock import patch
+
+import pytest
+from fastapi.testclient import TestClient
+
+from app import db
+from app.api.main import app
+from app.rag.generate import GenerateResult, Source
+
+
+@pytest.fixture
+def client():
+    with (
+        patch("app.db.open_pool", return_value=None),
+        patch("app.db.close_pool", return_value=None),
+        TestClient(app) as c,
+    ):
+        yield c
+
+
+def test_healthz_ok(client):
+    with patch("app.api.main.db.ping", return_value=True):
+        resp = client.get("/healthz")
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["status"] == "ok"
+    assert body["db"] is True
+
+
+def test_healthz_db_down(client):
+    with patch("app.api.main.db.ping", return_value=False):
+        resp = client.get("/healthz")
+
+    assert resp.status_code == 200
+    assert resp.json()["status"] == "error"
+
+
+def test_query_returns_answer_with_numbered_sources(client):
+    fake_chunks = [
+        db.SearchResult(
+            id=1,
+            section="A > B",
+            content="content 1",
+            page_start=10,
+            service="bedrock",
+            doc="bedrock-ug",
+            source_url="https://example.com/x.pdf",
+            score=0.9,
+        ),
+        db.SearchResult(
+            id=2,
+            section="C",
+            content="content 2",
+            page_start=20,
+            service="bedrock",
+            doc="bedrock-ug",
+            source_url="https://example.com/y.pdf",
+            score=0.8,
+        ),
+    ]
+    fake_result = GenerateResult(
+        answer="回答本文 [1][2]",
+        sources=[
+            Source(1, "bedrock", "bedrock-ug", "A > B", 10, "https://example.com/x.pdf", 0.9),
+            Source(2, "bedrock", "bedrock-ug", "C", 20, "https://example.com/y.pdf", 0.8),
+        ],
+        usage={"inputTokens": 10, "outputTokens": 5},
+    )
+    with (
+        patch("app.api.main.retrieve", return_value=fake_chunks) as mock_retrieve,
+        patch("app.api.main.generate_answer", return_value=fake_result) as mock_generate,
+    ):
+        resp = client.post("/query", json={"question": "質問文"})
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["answer"] == "回答本文 [1][2]"
+    assert [s["index"] for s in body["sources"]] == [1, 2]
+    assert body["usage"]["inputTokens"] == 10
+    assert body["latency_ms"] >= 0
+    mock_retrieve.assert_called_once()
+    mock_generate.assert_called_once()
+
+
+def test_query_with_no_matching_chunks_returns_no_sources(client):
+    empty_result = GenerateResult(
+        answer="提供されたドキュメントには記載がありません。", sources=[], usage={}
+    )
+    with (
+        patch("app.api.main.retrieve", return_value=[]),
+        patch("app.api.main.generate_answer", return_value=empty_result),
+    ):
+        resp = client.post("/query", json={"question": "無関係の質問"})
+
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["sources"] == []
+    assert "記載がありません" in body["answer"]
+
+
+def test_query_rejects_empty_question(client):
+    resp = client.post("/query", json={"question": ""})
+    assert resp.status_code == 422

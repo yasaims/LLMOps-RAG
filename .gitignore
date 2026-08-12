@@ -216,3 +216,11 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Project: raw document downloads (do not commit source PDFs)
+/data/
+*.pdf
+
+
+.vscode
+CLAUDE.md
