@@ -8,6 +8,7 @@ from dataclasses import asdict
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from app.api.schemas import QueryRequest, QueryResponse, SourceOut
 from app.config import get_settings
@@ -20,6 +21,16 @@ configure_logging()
 logger = logging.getLogger("app.query")
 
 
+class UTF8JSONResponse(JSONResponse):
+    """Starlette の JSONResponse は application/json に charset を付けない。
+
+    charset 未指定だと PowerShell の Invoke-RestMethod 等が UTF-8 以外で
+    デコードし、日本語の回答が文字化けするため明示する。
+    """
+
+    media_type = "application/json; charset=utf-8"
+
+
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
     get_store().open()
@@ -29,7 +40,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         get_store().close()
 
 
-app = FastAPI(title="LLMOps RAG API", lifespan=lifespan)
+app = FastAPI(title="LLMOps RAG API", lifespan=lifespan, default_response_class=UTF8JSONResponse)
 
 _settings = get_settings()
 if _settings.cors_allow_origins:

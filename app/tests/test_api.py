@@ -22,6 +22,7 @@ def test_healthz_ok(client):
     resp = c.get("/healthz")
 
     assert resp.status_code == 200
+    assert resp.headers["content-type"] == "application/json; charset=utf-8"
     body = resp.json()
     assert body["status"] == "ok"
     assert body["vector_store"]
