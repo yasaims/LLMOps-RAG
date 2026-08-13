@@ -11,11 +11,12 @@ import itertools
 import json
 from pathlib import Path
 
-from app import db
 from app.bedrock import embed_documents
 from app.ingestion.chunk import chunk_pages
 from app.ingestion.download_docs import SOURCES
 from app.ingestion.parse import PageText, extract_pages
+from app.vectorstore import ChunkRecord, get_store
+from app.vectorstore.base import VectorStore
 
 DATA_DIR = Path(__file__).resolve().parent.parent.parent / "data" / "raw"
 EMBED_BATCH_SIZE = 96
@@ -34,7 +35,25 @@ def _load_pages(pdf_path: Path, max_pages: int | None) -> list[PageText]:
     return list(pages_iter)
 
 
-def run(doc_key: str, dry_run: bool, max_pages: int | None) -> None:
+def _resolve_store(store_name: str | None) -> VectorStore:
+    """--store が指定されていれば設定を無視してそのバックエンドを使う。
+
+    省略時は VECTOR_STORE 設定に従う。
+    """
+    if store_name is None:
+        return get_store()
+    if store_name == "pgvector":
+        from app.vectorstore.pgvector_store import PgVectorStore
+
+        return PgVectorStore()
+    if store_name == "s3vectors":
+        from app.vectorstore.s3vectors_store import S3VectorsStore
+
+        return S3VectorsStore()
+    raise SystemExit(f"未知の --store 値です: {store_name}")
+
+
+def run(doc_key: str, dry_run: bool, max_pages: int | None, store: VectorStore) -> None:
     source = SOURCES[doc_key]
     pdf_path = DATA_DIR / f"{source.doc}.pdf"
     meta_path = DATA_DIR / f"{source.doc}.meta.json"
@@ -62,13 +81,13 @@ def run(doc_key: str, dry_run: bool, max_pages: int | None) -> None:
         print("--dry-run のため embed API 呼び出しと DB 投入は行いません。")
         return
 
-    document_id = db.upsert_document(
+    store.register_document(
         service=source.service,
         doc=source.doc,
         source_url=source.url,
         content_hash=meta["sha256"],
     )
-    already = db.existing_content_hashes(document_id)
+    already = store.existing_hashes(source.service, source.doc)
     new_chunks = [c for c in chunks if c.content_hash not in already]
     skipped = len(chunks) - len(new_chunks)
     print(f"[{doc_key}] 新規チャンク数: {len(new_chunks)} (投入済み {skipped} 件をスキップ)")
@@ -78,7 +97,10 @@ def run(doc_key: str, dry_run: bool, max_pages: int | None) -> None:
         batch = new_chunks[i : i + EMBED_BATCH_SIZE]
         embeddings = embed_documents([c.content for c in batch])
         records = [
-            db.ChunkRecord(
+            ChunkRecord(
+                service=source.service,
+                doc=source.doc,
+                source_url=source.url,
                 section=c.section,
                 page_start=c.page_start,
                 page_end=c.page_end,
@@ -88,7 +110,7 @@ def run(doc_key: str, dry_run: bool, max_pages: int | None) -> None:
             )
             for c, emb in zip(batch, embeddings, strict=True)
         ]
-        inserted = db.upsert_chunks(document_id, records)
+        inserted = store.upsert_chunks(records)
         inserted_total += inserted
         done = min(i + EMBED_BATCH_SIZE, len(new_chunks))
         print(f"[{doc_key}] {done}/{len(new_chunks)} 件処理 (挿入 {inserted} 件)")
@@ -105,11 +127,18 @@ def main() -> None:
     parser.add_argument(
         "--max-pages", type=int, default=None, help="開発中の高速反復用にページ数を制限"
     )
+    parser.add_argument(
+        "--store",
+        choices=["pgvector", "s3vectors"],
+        default=None,
+        help="投入先を明示指定 (省略時は VECTOR_STORE 環境変数の設定に従う)",
+    )
     args = parser.parse_args()
+    store = _resolve_store(args.store)
     try:
-        run(args.doc, args.dry_run, args.max_pages)
+        run(args.doc, args.dry_run, args.max_pages, store)
     finally:
-        db.close_pool()
+        store.close()
 
 
 if __name__ == "__main__":

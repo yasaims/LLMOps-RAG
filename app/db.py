@@ -1,11 +1,24 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 from pgvector.psycopg import register_vector
 from psycopg_pool import ConnectionPool
 
 from app.config import get_settings
+from app.vectorstore.base import ChunkRecord, SearchResult
+
+__all__ = [
+    "ChunkRecord",
+    "SearchResult",
+    "open_pool",
+    "close_pool",
+    "ping",
+    "upsert_document",
+    "get_document_id",
+    "upsert_chunks",
+    "existing_content_hashes",
+    "fetch_chunks",
+    "search",
+]
 
 _pool: ConnectionPool | None = None
 
@@ -36,28 +49,6 @@ def ping() -> bool:
         return cur.fetchone() == (1,)
 
 
-@dataclass
-class ChunkRecord:
-    section: str | None
-    page_start: int | None
-    page_end: int | None
-    content: str
-    content_hash: str
-    embedding: list[float]
-
-
-@dataclass
-class SearchResult:
-    id: int
-    section: str | None
-    content: str
-    page_start: int | None
-    service: str
-    doc: str
-    source_url: str
-    score: float
-
-
 def upsert_document(service: str, doc: str, source_url: str, content_hash: str) -> int:
     sql = """
         INSERT INTO documents (service, doc, source_url, content_hash)
@@ -73,6 +64,14 @@ def upsert_document(service: str, doc: str, source_url: str, content_hash: str) 
         row = cur.fetchone()
         assert row is not None
         return row[0]
+
+
+def get_document_id(service: str, doc: str) -> int | None:
+    sql = "SELECT id FROM documents WHERE service = %s AND doc = %s"
+    with open_pool().connection() as conn, conn.cursor() as cur:
+        cur.execute(sql, (service, doc))
+        row = cur.fetchone()
+        return row[0] if row else None
 
 
 def upsert_chunks(document_id: int, chunks: list[ChunkRecord]) -> int:
@@ -107,6 +106,33 @@ def existing_content_hashes(document_id: int) -> set[str]:
     with open_pool().connection() as conn, conn.cursor() as cur:
         cur.execute(sql, (document_id,))
         return {row[0] for row in cur.fetchall()}
+
+
+def fetch_chunks(service: str, doc: str) -> list[ChunkRecord]:
+    """指定文書の全チャンクを埋め込み込みで取得する (S3 Vectors への移送用)。"""
+    sql = """
+        SELECT d.service, d.doc, d.source_url, c.section, c.page_start, c.page_end,
+               c.content, c.content_hash, c.embedding
+        FROM chunks c
+        JOIN documents d ON d.id = c.document_id
+        WHERE d.service = %s AND d.doc = %s
+    """
+    with open_pool().connection() as conn, conn.cursor() as cur:
+        cur.execute(sql, (service, doc))
+        return [
+            ChunkRecord(
+                service=row[0],
+                doc=row[1],
+                source_url=row[2],
+                section=row[3],
+                page_start=row[4],
+                page_end=row[5],
+                content=row[6],
+                content_hash=row[7],
+                embedding=row[8].to_list(),
+            )
+            for row in cur.fetchall()
+        ]
 
 
 def search(embedding: list[float], top_k: int) -> list[SearchResult]:

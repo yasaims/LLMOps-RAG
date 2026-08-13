@@ -22,26 +22,32 @@ flowchart LR
 - **推論**: FastAPI `/query` が検索 (Retrieve) と生成 (Generate) を実行
 - ベクトルストアは pgvector (docker compose)。Bedrock 呼び出しは `app/bedrock.py` に集約
 
-## Phase 2 以降 (想定)
+## Phase 2: AWS 最小構成 (Terraform, デプロイ済み)
 
 ```mermaid
 flowchart LR
-    user["利用者"] -->|HTTPS| cf["CloudFront + S3\n(静的フロント)"]
-    cf --> apigw["API Gateway"]
-    apigw --> lambda["Lambda\n(コンテナイメージ)"]
-    lambda --> bedrock[("Amazon Bedrock")]
-    lambda --> aurora[("Aurora Serverless v2\n(pgvector)")]
-    s3["S3\n(取り込み元PDF)"] --> ingestlambda["取り込みLambda/バッチ"]
-    ingestlambda --> aurora
+    client["curl / ブラウザ"] -->|"HTTPS\nPOST /query, GET /healthz"| apigw["API Gateway (HTTP API)\nスロットリング 2 req/s"]
+    apigw --> lambda["Lambda\n(コンテナイメージ, VPC外)"]
+    lambda -->|"Cohere Embed v4 / Claude Haiku 4.5"| bedrock[("Amazon Bedrock\nap-northeast-1")]
+    lambda -->|"QueryVectors / GetVectors"| s3v[("S3 Vectors\nindex: chunks")]
+    lambda -->|"JSON構造化ログ"| logs[("CloudWatch Logs")]
 
-    budgets["AWS Budgets"] -->|閾値超過| stopfn["停止用Lambda\nPutFunctionConcurrency(0)"]
-    stopfn -.->|reserved concurrency=0| lambda
+    dev["開発者ローカル"] -->|"upload_docs.py"| docs["S3 (docs バケット)\n取り込み元PDF保管"]
+    dev -->|"ingest.py / migrate_to_s3vectors.py\n(PutVectors, ローカル資格情報)"| s3v
+
+    budgets["AWS Budgets\n月次予算アラート"] -->|"80% / 100%超過"| sns["SNS (メール通知)"]
+    cwalarm["CloudWatch アラーム\nLambda Errors/Throttles"] --> sns
 ```
 
-- Lambda (コンテナイメージ) + API Gateway でサーバーレス化 (アイドル時ゼロ円)
-- Aurora Serverless v2 は未使用時に停止する運用
-- AWS Budgets → 停止用 Lambda によるコスト暴走対策 (計画書 §7.5)
-- Terraform でモジュール分割 (`network` / `api` / `vector-store` / `ingestion` / `observability`)
+- Lambda (コンテナイメージ, x86_64) + API Gateway HTTP API でサーバーレス化 (アイドル時ゼロ円)
+- **ベクトルストアは S3 Vectors** (Aurora Serverless v2 からの変更。[ADR 0005](adr/0005-s3-vectors-for-phase2.md))。
+  VPC 不要のため NAT/VPC エンドポイントの常時課金が発生しない
+- 取り込み (embed + PutVectors) はローカル/バッチから実行し、Lambda の実行時パスは
+  検索専用 (最小権限の IAM)。[ADR 0006](adr/0006-lambda-container-http-api.md)
+- AWS Budgets (月次) + CloudWatch アラーム (Errors/Throttles) → SNS メール通知。
+  Budgets 超過時の自動停止 (計画書 §7.5) は Phase 4
+- Terraform 構成: `infra/bootstrap` (tfstate用S3 + ECR, 一度きり) /
+  `infra/modules/{vector-store,ingestion,api,observability}` / `infra/envs/dev`
 
 ## モデル選定の要約
 
@@ -49,5 +55,6 @@ flowchart LR
 | --- | --- | --- |
 | 埋め込み | `cohere.embed-v4:0` (1536次元) | [ADR 0002](adr/0002-embedding-model-selection.md) |
 | 生成 | `jp.anthropic.claude-haiku-4-5-20251001-v1:0` | [ADR 0004](adr/0004-bedrock-inference-profile.md) |
-| ベクトルストア | pgvector → Aurora Serverless v2 | [ADR 0001](adr/0001-vector-store-selection.md) |
+| ベクトルストア | pgvector (Phase 1) → S3 Vectors (Phase 2) | [ADR 0001](adr/0001-vector-store-selection.md) / [ADR 0005](adr/0005-s3-vectors-for-phase2.md) |
 | チャンク分割 | 見出し認識 + スライディングウィンドウ | [ADR 0003](adr/0003-chunking-strategy.md) |
+| 実行基盤 | Lambda (コンテナイメージ) + API Gateway HTTP API | [ADR 0006](adr/0006-lambda-container-http-api.md) |
