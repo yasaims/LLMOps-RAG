@@ -25,11 +25,11 @@ permissions:
 jobs:
   eval:
     runs-on: ubuntu-latest
-    # ⚠️ 明示しないと GitHub 既定の 360 分 (6 時間) まで走り続ける。judge がタイムアウトを
-    # 繰り返すと、Bedrock 課金を垂れ流したまま誰も気づかない状態になりうる (2026-08 に
-    # RunConfig の timeout 超過で 1 実行あたり 50 分規模まで伸びた実績あり)。
-    # 健全時の実測目安は 検索+生成 約 5 分 + judge 約 30 分 なので、その 1.7 倍を上限とする。
-    timeout-minutes: 60
+    # ⚠️ 明示しないと GitHub 既定の 360 分 (6 時間) まで走り続け、Bedrock 課金を
+    # 垂れ流したまま誰も気づかない状態になりうる (2026-08 に ragas のテレメトリ送信が
+    # 1 呼び出しあたり約 10 秒の DNS 待ちを入れ、1 実行 59 分に達した実績あり)。
+    # 原因を除去した後の実測は 25 問で約 5 分 (ローカル 3 分 51 秒) なので、その約 6 倍。
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
         with:
@@ -74,6 +74,10 @@ jobs:
         if: steps.changes.outputs.should_run == 'true'
         id: run
         env:
+          # ⚠️ これがないと stdout がブロックバッファリングされ、進捗が一切見えないまま
+          # プロセス終了時に全出力が一括で flush される。実際 59 分間ログが 1 行も出ず、
+          # 「ハングしているのか進行中なのか」を CI ログから判断できなかった。
+          PYTHONUNBUFFERED: "1"
           VECTOR_STORE: s3vectors
           S3_VECTORS_BUCKET: ${{ vars.S3_VECTORS_BUCKET }}
           S3_VECTORS_INDEX: ${{ vars.S3_VECTORS_INDEX }}

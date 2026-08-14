@@ -10,7 +10,24 @@ ragas を import するのはこのモジュールだけにする (evals/metrics
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
+
+# ⚠️ ragas は generate_text() のたびに https://t.explodinggradients.com へ
+# requests.post でテレメトリを送信する (`ragas/_analytics.py` の track())。
+# GitHub Actions のランナーではこのホストの DNS 解決が通らず、getaddrinfo のリトライ待ちで
+# 1 呼び出しあたり約 10 秒が加算されていた (cProfile 実測: 10.7 秒中 10.0 秒が time.sleep、
+# うち本来の Bedrock 呼び出しは 0.7 秒。CPU 時間は 0.00 秒 = ずっと寝ていた)。
+# judge は 25 問で 200 回超呼ばれるため、これだけで CI の judge フェーズが
+# 2 分 → 58 分に膨らんでいた。無効化で 10.65s → 0.64s (16.6 倍) を実測で確認済み。
+#
+# ⚠️ 値は文字列 "true" でなければならない。ragas 側の判定が
+#    `os.environ.get(...).lower() == "true"` の完全一致なので、"1" や "yes" では
+#    「無効化したつもりで有効なまま」になる。
+#
+# ワークフローの env ではなくここに置いているのは、ローカル実行にも効かせるためと、
+# ragas の import より前である必要があるため (ragas 本体は score_generation() 内で遅延 import)。
+os.environ.setdefault("RAGAS_DO_NOT_TRACK", "true")
 
 # ragas 0.4.3 は `ragas.metrics` から Faithfulness/FactualCorrectness/LLMContextRecall を
 # import すると DeprecationWarning を出す (v1.0 で `ragas.metrics.collections` に統合予定)。
@@ -44,12 +61,12 @@ def score_generation(
 ) -> list[GenerationScore]:
     """Faithfulness / FactualCorrectness / LLMContextRecall を Bedrock judge で採点する。
 
-    ⚠️ timeout の既定値を 180 → 600 秒に引き上げてある。3 メトリクスのうち
-    FactualCorrectness だけが桁違いに重く (回答と参照の双方を claim に分解してから
-    双方向 NLI を回すため 1 サンプルあたり LLM 呼び出しが 4 回前後、日本語の長文回答では
-    さらに伸びる)、180 秒では CI 上で全 25 問が例外なくタイムアウトしていた。
-    スロットリング由来ではない (実行ログに Throttling / retry の記録がない) ため、
-    上限そのものが低すぎたと判断している。
+    timeout の既定値は 600 秒 (当初 180 秒)。CI で FactualCorrectness だけが全 25 問
+    タイムアウトしていたための引き上げだが、⚠️ **真因は上限の低さではなく、上のブロックで
+    無効化した ragas のテレメトリ送信だった**。1 呼び出しにつき約 10 秒の DNS 待ちが乗り、
+    1 サンプルあたり LLM 呼び出しが 4 回前後と最も多い FactualCorrectness だけが
+    180 秒を超えていた。テレメトリを止めた今は 600 秒は実質使われない安全余裕にすぎない
+    (経緯は ADR 0009)。
 
     暴走の歯止めは呼び出し側の 2 段構えに任せる:
       - eval.yml の job 単位 `timeout-minutes`
