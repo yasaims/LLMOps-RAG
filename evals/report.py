@@ -12,6 +12,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+# 「要確認の問い」の一覧に並べる上限。超過分は件数だけ示して report.json に誘導する
+# (打ち切ること自体より、打ち切ったと分からないことが問題だった)。
+MAX_WORST_QUESTIONS_SHOWN = 10
+
 
 @dataclass
 class GateResult:
@@ -239,8 +243,16 @@ def render_markdown(report: EvalReport, worst_questions: list[dict[str, Any]] | 
             lines.append(f"- {name}: {value:.3f}")
 
     if worst_questions:
-        lines += ["", "**要確認の問い**", ""]
-        for q in worst_questions:
+        # ⚠️ 件数を必ず見出しに出し、打ち切る場合はその旨を明示する。
+        # 以前は呼び出し側が黙って [:5] で切っており、recall@5=0.680 (25 問中 8 問ミス) に対して
+        # 5 問しか並ばなかった。ADR 0009 の「25 問中 5 問がヒットしなかった」という記述も
+        # この切り捨て後のリストから書かれてしまい、3 問が人手確認の対象から漏れていた。
+        total = len(worst_questions)
+        shown = worst_questions[:MAX_WORST_QUESTIONS_SHOWN]
+        lines += ["", f"**要確認の問い ({total} 問)**", ""]
+        for q in shown:
             lines.append(f"- `{q.get('id')}`: {q.get('reason', '')}")
+        if total > len(shown):
+            lines.append(f"- … 他 {total - len(shown)} 問 (全件は Artifact の report.json を参照)")
 
     return "\n".join(lines)

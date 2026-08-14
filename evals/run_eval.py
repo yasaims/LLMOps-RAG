@@ -181,11 +181,14 @@ def run(
         judge_coverage=judge_coverage,
     )
 
+    # ⚠️ ここで件数を絞らないこと。表示上の打ち切りは render_markdown に任せる
+    # (そちらは総数と「他 N 問」を必ず出す)。以前はここで [:5] していたため、
+    # recall@5 と件数が食い違っていることに気づけなかった。
     worst = [
         {"id": q["id"], "reason": "検索でヒットしませんでした"}
         for q in per_question
         if q["hit_rank"] is None
-    ][:5]
+    ]
     summary_md = render_markdown(report, worst_questions=worst)
 
     out_path.parent.mkdir(parents=True, exist_ok=True)

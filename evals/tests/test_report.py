@@ -236,3 +236,39 @@ def test_dataset_sha256_still_detects_a_real_content_change(tmp_path):
     changed.write_bytes(b"\n".join([*_JSONL_LINES, b'{"id": "q3"}']) + b"\n")
 
     assert dataset_sha256(original) != dataset_sha256(changed)
+
+
+# --- 要確認の問い: 件数を偽らないこと ---------------------------------------
+
+
+def _report_with_worst():
+    return build_report(
+        metrics={"recall@5": 0.85, "generation_score": 0.90},
+        baseline=_baseline(),
+        current_dataset_sha256="abc123",
+        n_questions=25,
+    )
+
+
+def test_worst_questions_heading_shows_the_total_count():
+    """recall と件数が食い違って見えないよう、総数を必ず出す。"""
+    worst = [{"id": f"q{i}", "reason": "検索でヒットしませんでした"} for i in range(8)]
+    md = render_markdown(_report_with_worst(), worst_questions=worst)
+    assert "**要確認の問い (8 問)**" in md
+    for i in range(8):
+        assert f"`q{i}`" in md
+    assert "他" not in md  # 上限内なので打ち切りの注記は出ない
+
+
+def test_worst_questions_beyond_the_cap_are_counted_not_dropped():
+    worst = [{"id": f"q{i}", "reason": "検索でヒットしませんでした"} for i in range(14)]
+    md = render_markdown(_report_with_worst(), worst_questions=worst)
+    assert "**要確認の問い (14 問)**" in md
+    assert "… 他 4 問" in md
+    assert "`q9`" in md  # 10 件目までは並ぶ
+    assert "`q10`" not in md  # 11 件目以降は件数のみ
+
+
+def test_no_worst_questions_renders_no_section():
+    md = render_markdown(_report_with_worst(), worst_questions=[])
+    assert "要確認の問い" not in md
