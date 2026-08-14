@@ -113,23 +113,69 @@ CI が自動で基準を書き換えると劣化がなし崩しに許容され�
 - 判定は `evals/report.py` の `insufficient_judge_coverage()` に純粋関数として切り出し、
   依存ゼロのまま既存 CI のユニットテスト対象にしている
 
+### ⚠️ ragas のテレメトリ送信を必ず止める (2026-08 の最重要知見)
+
+`evals/judge.py` の先頭で `RAGAS_DO_NOT_TRACK` を `"true"` に設定している。**外すと
+CI の eval が 5 分から 59 分に膨れ上がる。**
+
+ragas は `generate_text()` のたびに `https://t.explodinggradients.com` へ
+`requests.post` で利用状況を送る (`ragas/_analytics.py` の `track()`)。GitHub Actions の
+ランナーではこのホストの DNS 解決が通らず、`getaddrinfo` のリトライ待ちが
+1 呼び出しあたり約 10 秒乗る。judge は 25 問で 200 回超呼ばれるため、これだけで
+judge フェーズが 2 分 → 58 分になっていた。
+
+cProfile の実測 (CI、1 呼び出し):
+
+```
+10.017s  ragas/_analytics.py:222(track) → requests.post
+10.015s  socket.py:946(getaddrinfo)
+ 9.692s  time.sleep (10 回)
+─────────
+ 0.699s  botocore _make_api_call        ← 本来の Bedrock 呼び出し
+```
+
+CPU 時間は 0.00 秒。無効化により 10.65s → **0.64s** (16.6 倍) を実測で確認した。
+
+- ⚠️ **値は文字列 `"true"` でなければ効かない。** ragas 側の判定が
+  `os.environ.get(...).lower() == "true"` の完全一致なので、`"1"` や `"yes"` では
+  「無効化したつもりで有効なまま」になる
+- ⚠️ 設定はワークフローの `env` ではなく `evals/judge.py` に置く。ローカル実行にも
+  効かせるためと、ragas の import より前である必要があるため
+- 性能だけの問題ではない。public リポジトリの CI から第三者エンドポイントへ
+  利用状況が送信されていたという点でも止める理由がある
+
+**切り分けの経緯** (同種の問題を再度追うとき用): Bedrock 側の `InvocationLatency` は
+CI でも約 2.2 秒で正常、`InvocationThrottles` はゼロ、呼び出し回数もローカルと同じ
+約 208 回、リトライ・例外もログにゼロ。自前の boto3 直呼び出しである検索+生成フェーズは
+CI でも 25 問を約 2 分で完了していた (`cohere.embed-v4:0` の毎分カウントで確認)。
+つまり AWS 側・ネットワーク・自前コードはすべてシロで、ragas / langchain のレイヤだけが
+容疑者として残った。そこで同一の推論を boto3 / `ChatBedrockConverse` /
+`LangchainLLMWrapper` の 3 層で計測したところ、3 層目だけが 10.65s (他は 0.65s) となり、
+cProfile が `_analytics.track` を名指しした。
+
 ### judge のタイムアウト設定
 
-`RunConfig(timeout=...)` は **600 秒**。当初の 180 秒では CI 上で
-`FactualCorrectness` だけが全 25 問タイムアウトしていた (`Faithfulness` と
-`LLMContextRecall` は完走)。この 1 指標は回答と参照の双方を claim に分解してから
-双方向 NLI を回すため 1 サンプルあたり LLM 呼び出しが 4 回前後になり、
-日本語の長文回答ではさらに伸びる。実行ログに `Throttling` / retry の記録がないため、
-スロットリング由来ではなく上限そのものが低すぎたと判断した。
+`RunConfig(timeout=...)` は **600 秒** (当初 180 秒)。引き上げた当時は
+「FactualCorrectness が最も重いから上限が低すぎた」と判断したが、⚠️ **真因は上記の
+テレメトリ送信だった**。1 サンプルあたりの LLM 呼び出しが 4 回前後と最も多い
+FactualCorrectness にだけ約 40 秒の DNS 待ちが乗り、この指標だけが 180 秒を超えていた。
+テレメトリを止めた現在、600 秒は実質使われない安全余裕にすぎない。
 
-暴走の歯止めは上限の引き上げではなく、独立した 2 段構えで担保する:
+暴走の歯止めは独立した 2 段構えで担保する:
 
-1. `eval.yml` の job 単位 `timeout-minutes: 60` — 明示しないと GitHub 既定の
+1. `eval.yml` の job 単位 `timeout-minutes: 30` — 明示しないと GitHub 既定の
    **360 分 (6 時間)** まで走り続け、Bedrock 課金を垂れ流したまま誰も気づかない
 2. 上記の judge カバレッジ検査 (exit 2)
 
-実測の目安は 検索+生成 約 5 分 (25 問・逐次) + judge 約 30 分
-(75 ジョブ / `max_workers=4`)。
+実測の目安は 25 問で約 5 分 (ローカルは 3 分 51 秒)。
+
+### ⚠️ `PYTHONUNBUFFERED` を設定する
+
+`eval.yml` の評価ステップに `PYTHONUNBUFFERED: "1"` を入れている。これがないと
+stdout がブロックバッファリングされ、**プロセス終了時まで 1 行も出力されない**。
+実際、59 分の実行でログが完全に無音になり、CI ログからは「ハングしているのか
+進行中なのか」を判断できなかった (切り分けには CloudWatch の Bedrock
+`Invocations` 毎分カウントを使う必要があった)。
 
 ## 影響
 

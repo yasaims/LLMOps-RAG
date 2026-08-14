@@ -1,5 +1,6 @@
 from evals.report import (
     build_report,
+    dataset_sha256,
     evaluate_gate,
     insufficient_judge_coverage,
     render_markdown,
@@ -198,3 +199,40 @@ def test_empty_dataset_is_treated_as_insufficient_not_as_perfect_coverage():
     assert insufficient_judge_coverage({"faithfulness": 0}, n_questions=0, min_coverage=0.8) == {
         "faithfulness": 0
     }
+
+
+# --- dataset_sha256: 改行コードで割れないこと (issue #4) -------------------
+
+_JSONL_LINES = [
+    b'{"id": "q1", "question": "\xe3\x81\x82"}',
+    b'{"id": "q2", "question": "\xe3\x81\x84"}',
+]
+
+
+def _write(tmp_path, name: str, sep: bytes):
+    path = tmp_path / name
+    path.write_bytes(sep.join(_JSONL_LINES) + sep)
+    return path
+
+
+def test_dataset_sha256_is_identical_for_crlf_and_lf(tmp_path):
+    """Windows で作った baseline が Linux の CI と食い違わないこと。
+
+    これが崩れると dataset_changed が常に True になり、baseline 比較が無効化されて
+    floor のみの判定に落ちる (tolerance によるリグレッション検知が死ぬ)。
+    """
+    lf = _write(tmp_path, "lf.jsonl", b"\n")
+    crlf = _write(tmp_path, "crlf.jsonl", b"\r\n")
+
+    assert lf.read_bytes() != crlf.read_bytes()  # 前提: バイト列としては別物
+    assert dataset_sha256(lf) == dataset_sha256(crlf)
+
+
+def test_dataset_sha256_still_detects_a_real_content_change(tmp_path):
+    """改行を正規化しても、中身が変わればハッシュは変わること。"""
+    original = _write(tmp_path, "a.jsonl", b"\n")
+
+    changed = tmp_path / "b.jsonl"
+    changed.write_bytes(b"\n".join([*_JSONL_LINES, b'{"id": "q3"}']) + b"\n")
+
+    assert dataset_sha256(original) != dataset_sha256(changed)
