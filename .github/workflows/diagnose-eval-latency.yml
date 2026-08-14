@@ -4,14 +4,20 @@ name: Diagnose Eval Latency
 # 呼び出しは 1 層あたり 3 回 × 3 層 = 9 回程度で、課金への影響は無視できる。
 # 原因が判明したら evals/diagnose_latency.py ごと削除すること。
 
-# diag/** ブランチへの push で起動する。workflow_dispatch はワークフローがデフォルト
-# ブランチ (main) に存在しないと登録されず、この診断のために main を触りたくないため。
-# また diag/** は eval.yml のトリガー (pull_request → main) に該当しないので、
-# 診断のたびに 60 分 / 約 $1 の本番 eval が巻き添えで走ることもない。
+# ⚠️ トリガーは pull_request でなければならない。eval ロール (llmops-rag-dev-eval-ci) の
+# trust policy が許可している sub は `:pull_request` と `:ref:refs/heads/main` の 2 つだけで、
+# ブランチへの push は `:ref:refs/heads/<branch>` になり AssumeRoleWithWebIdentity が通らない。
+# workflow_dispatch も使えない (ワークフローがデフォルトブランチに存在する必要があり、
+# この診断のために main を触りたくない)。
+#
+# 診断スクリプトを evals/ ではなく scripts/ に置いているのは、eval.yml のパス判定
+# `^(app/|evals/|pyproject.toml|uv.lock|.github/workflows/eval.yml)` に一致させないため。
+# evals/ に置くと診断のたびに 60 分 / 約 $1 の本番 eval が巻き添えで走ってしまう。
 on:
-  push:
-    branches:
-      - "diag/**"
+  pull_request:
+    paths:
+      - "scripts/diagnose_latency.py"
+      - ".github/workflows/diagnose-eval-latency.yml"
 
 permissions:
   id-token: write
@@ -40,4 +46,4 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: 層ごとのレイテンシを計測
-        run: uv run python -m evals.diagnose_latency
+        run: uv run python scripts/diagnose_latency.py
