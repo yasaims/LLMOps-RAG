@@ -108,9 +108,25 @@ data "aws_iam_policy_document" "ci_guardrail" {
     ]
   }
   statement {
-    sid       = "DenyOidcProviderTampering"
-    effect    = "Deny"
-    actions   = ["iam:*OpenIDConnectProvider*"]
+    # ⚠️ ここを `iam:*OpenIDConnectProvider*` の 1 行にしてはいけない。ワイルドカードが
+    #    GetOpenIDConnectProvider / ListOpenIDConnectProviders / ListOpenIDConnectProviderTags
+    #    にもマッチしてしまい、infra/envs/dev の
+    #    `data "aws_iam_openid_connect_provider" "github"` が読めなくなって
+    #    plan / apply が AccessDenied (explicit deny) で失敗する。
+    #    guardrail の意図は「改ざんの防止」であって「読み取りの禁止」ではないので、
+    #    変更系アクションだけを列挙する。Deny は Allow より強いため、
+    #    ReadOnlyAccess 側で読み取りを許可しても上書きできない点に注意。
+    sid    = "DenyOidcProviderTampering"
+    effect = "Deny"
+    actions = [
+      "iam:CreateOpenIDConnectProvider",
+      "iam:DeleteOpenIDConnectProvider",
+      "iam:UpdateOpenIDConnectProviderThumbprint",
+      "iam:AddClientIDToOpenIDConnectProvider",
+      "iam:RemoveClientIDFromOpenIDConnectProvider",
+      "iam:TagOpenIDConnectProvider",
+      "iam:UntagOpenIDConnectProvider",
+    ]
     resources = ["*"]
   }
   statement {
@@ -287,6 +303,16 @@ data "aws_iam_policy_document" "apply_stack_compute" {
       "iam:PassRole",
     ]
     resources = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.dev_prefix}-*"]
+  }
+  statement {
+    # infra/envs/dev の `data "aws_iam_openid_connect_provider" "github"` が
+    # module.ci_eval に渡す ARN を解決するために使う (List → Get の順に呼ばれる)。
+    # plan ロールは ReadOnlyAccess で賄えるが、apply ロールの IAM 権限は
+    # role/${dev_prefix}-* にしかスコープされていないため、ここで明示的に許可する。
+    # 読み取り専用なので guardrail の「改ざん防止」の意図とは競合しない。
+    sid       = "IamReadOidcProvider"
+    actions   = ["iam:GetOpenIDConnectProvider", "iam:ListOpenIDConnectProviders"]
+    resources = ["*"]
   }
 }
 

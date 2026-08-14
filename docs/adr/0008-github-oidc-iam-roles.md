@@ -93,6 +93,22 @@ Phase 3 の CI が当初一度も通らなかったのはこれが原因だっ�
   tfstate バケットの `s3:DeleteBucket` も Deny している。apply ロールの IAM 権限は
   `role/llmops-rag-dev-*` にしかスコープしていないため、guardrail がなくても
   `llmops-rag-ci-*` 自体は触れないが、「意図を明示するコード」として二重に残している
+  - ⚠️ **OIDC provider の Deny を `iam:*OpenIDConnectProvider*` の 1 行にしてはいけない**。
+    ワイルドカードが `GetOpenIDConnectProvider` / `ListOpenIDConnectProviders` /
+    `ListOpenIDConnectProviderTags` にもマッチし、`infra/envs/dev` の
+    `data "aws_iam_openid_connect_provider" "github"` が読めなくなって plan / apply が
+    `AccessDenied ... with an explicit deny` で失敗する (2026-08 に発生)。guardrail の
+    意図は「改ざんの防止」であって「読み取りの禁止」ではないため、変更系 7 アクション
+    (`Create`/`Delete`/`UpdateThumbprint`/`AddClientID`/`RemoveClientID`/`Tag`/`Untag`)
+    だけを列挙する。Deny は Allow より強く、`ReadOnlyAccess` を足しても上書きできない
+  - ⚠️ Deny を外すだけでは apply ロールは今度は**暗黙 Deny**で落ちる。apply ロールの
+    IAM 権限は `role/${dev_prefix}-*` にしかスコープされていないため、
+    `iam:GetOpenIDConnectProvider` / `iam:ListOpenIDConnectProviders` の Allow を
+    `-compute` ポリシーに明示追加している (plan ロールは `ReadOnlyAccess` で足りる)
+  - 変更後の検証は `aws iam simulate-principal-policy` が早い。ただし
+    `ListOpenIDConnectProviders` はリソースレベル権限を持たないアカウント全体アクション
+    なので、`--resource-arns` に provider ARN を渡すと実際には許可されていても
+    `implicitDeny` と表示される。この 1 件だけは `--resource-arns` なしで確認すること
 - **eval ロール**: Lambda 実行ロールと同一の `bedrock:InvokeModel` (embed FM + chat
   推論プロファイル + chat 推論プロファイルのルーティング先 FM) と
   `s3vectors:QueryVectors/GetVectors/GetIndex` のみ。`PutVectors` は含めない
