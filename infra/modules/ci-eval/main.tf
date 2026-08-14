@@ -27,11 +27,17 @@ data "aws_iam_policy_document" "assume" {
       # eval は PR (通常経路) と main への直接 push (workflow_dispatch フォールバック) の
       # どちらからも実行できるようにする。terraform-plan/apply ロールと異なりインフラを
       # 変更する権限を持たないため、対象を広げても影響は Bedrock/S3Vectors の読み取りのみ。
+      #
+      # ⚠️ github_repo (従来形式) と github_repo_immutable (immutable subject claim 形式) の
+      #    両方を列挙する。GitHub の sub 既定形式が owner@ownerID/repo@repoID に変わったため、
+      #    従来形式だけだと AssumeRoleWithWebIdentity が通らない (ADR 0008)。
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
       values = [
         "repo:${var.github_repo}:pull_request",
         "repo:${var.github_repo}:ref:refs/heads/main",
+        "repo:${var.github_repo_immutable}:pull_request",
+        "repo:${var.github_repo_immutable}:ref:refs/heads/main",
       ]
     }
   }

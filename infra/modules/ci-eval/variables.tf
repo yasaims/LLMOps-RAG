@@ -16,6 +16,11 @@ variable "github_repo" {
   description = "GitHub OIDC の trust policy で参照するリポジトリ (owner/repo)"
 }
 
+variable "github_repo_immutable" {
+  type        = string
+  description = "immutable subject claim 用のリポジトリ識別子 (owner@ownerID/repo@repoID)"
+}
+
 variable "oidc_provider_arn" {
   type        = string
   description = "infra/bootstrap で作成済みの GitHub OIDC provider ARN"

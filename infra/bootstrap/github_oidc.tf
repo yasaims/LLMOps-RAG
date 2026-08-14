@@ -30,6 +30,13 @@ locals {
 }
 
 # --- 信頼ポリシー: sub は完全一致のみ (ワイルドカードは使わない) -----------
+#
+# ⚠️ sub は「従来形式」と「immutable subject claim 形式」の両方を列挙する。GitHub は sub に
+#    アカウント ID / リポジトリ ID を埋め込む形式へ既定を切り替えており、実際のトークンは
+#    repo:yasaims@148611624/LLMOps-RAG@1332093841:... で発行される (詳細は ADR 0008)。
+#    StringEquals の values はリストなら OR 評価になるので、`repo:owner@*/repo@*` のような
+#    ワイルドカードに緩めることなく両対応できる。GitHub 側が既定を戻しても壊れない。
+#    現在の値は `gh api repos/<owner>/<repo>/actions/oidc/customization/sub` で確認できる。
 
 data "aws_iam_policy_document" "assume_ci_tf_plan" {
   statement {
@@ -46,7 +53,10 @@ data "aws_iam_policy_document" "assume_ci_tf_plan" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:pull_request"]
+      values = [
+        "repo:${var.github_repo}:pull_request",
+        "repo:${var.github_repo_immutable}:pull_request",
+      ]
     }
   }
 }
@@ -66,7 +76,10 @@ data "aws_iam_policy_document" "assume_ci_tf_apply" {
     condition {
       test     = "StringEquals"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_repo}:ref:refs/heads/main"]
+      values = [
+        "repo:${var.github_repo}:ref:refs/heads/main",
+        "repo:${var.github_repo_immutable}:ref:refs/heads/main",
+      ]
     }
   }
 }

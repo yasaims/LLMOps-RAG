@@ -79,11 +79,12 @@ module "observability" {
 module "ci_eval" {
   source = "../../modules/ci-eval"
 
-  project            = var.project
-  env                = var.env
-  aws_region         = var.aws_region
-  github_repo        = var.github_repo
-  oidc_provider_arn  = data.aws_iam_openid_connect_provider.github.arn
-  vector_index_arn   = module.vector_store.index_arn
-  bedrock_model_arns = module.api.bedrock_model_arns
+  project               = var.project
+  env                   = var.env
+  aws_region            = var.aws_region
+  github_repo           = var.github_repo
+  github_repo_immutable = var.github_repo_immutable
+  oidc_provider_arn     = data.aws_iam_openid_connect_provider.github.arn
+  vector_index_arn      = module.vector_store.index_arn
+  bedrock_model_arns    = module.api.bedrock_model_arns
 }

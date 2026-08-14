@@ -89,6 +89,17 @@ variable "github_repo" {
   default     = "yasaims/LLMOps-RAG"
 }
 
+# GitHub の immutable subject claim 用のリポジトリ識別子 (owner@ownerID/repo@repoID)。
+# 実際に発行される OIDC トークンの sub がこの形式になっているため、従来形式だけを
+# StringEquals にすると eval CI の AssumeRoleWithWebIdentity が通らない (ADR 0008)。
+# 値は `gh api repos/<owner>/<repo>/actions/oidc/customization/sub` の sub_claim_prefix から
+# "repo:" を除いた文字列。ID は不変なので名前変更に追随する必要はない。
+variable "github_repo_immutable" {
+  type        = string
+  description = "immutable subject claim 用のリポジトリ識別子 (owner@ownerID/repo@repoID)"
+  default     = "yasaims@148611624/LLMOps-RAG@1332093841"
+}
+
 variable "monthly_budget_usd" {
   type    = number
   default = 10

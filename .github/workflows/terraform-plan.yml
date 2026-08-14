@@ -26,18 +26,6 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - name: "[DEBUG] Decode OIDC token claims"
-        env:
-          ACTIONS_ID_TOKEN_REQUEST_URL: ${{ env.ACTIONS_ID_TOKEN_REQUEST_URL }}
-          ACTIONS_ID_TOKEN_REQUEST_TOKEN: ${{ env.ACTIONS_ID_TOKEN_REQUEST_TOKEN }}
-        run: |
-          JWT=$(curl -sS -H "Authorization: bearer $ACTIONS_ID_TOKEN_REQUEST_TOKEN" \
-            "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=sts.amazonaws.com" | jq -r '.value')
-          PAYLOAD=$(echo "$JWT" | cut -d. -f2)
-          PAD=$(( (4 - ${#PAYLOAD} % 4) % 4 ))
-          PADDED="${PAYLOAD}$(printf '=%.0s' $(seq 1 $PAD))"
-          echo "$PADDED" | tr '_-' '/+' | base64 -d | jq '{sub, aud, iss, repository, ref, event_name}'
-
       - name: Configure AWS credentials (plan, read-only)
         uses: aws-actions/configure-aws-credentials@v6
         with:
