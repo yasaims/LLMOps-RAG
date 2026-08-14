@@ -29,6 +29,9 @@ jobs:
     timeout-minutes: 20
     env:
       PYTHONUNBUFFERED: "1"
+      # 犯人の検証用。これで 3 層目が 10.7s → 0.7s に落ちれば、遅延が ragas のテレメトリ
+      # 送信 (DNS 解決待ち) だったことが確定する。⚠️ 値は "true" 完全一致でないと効かない。
+      RAGAS_DO_NOT_TRACK: "true"
     steps:
       - uses: actions/checkout@v7
 

@@ -10,7 +10,23 @@ ragas を import するのはこのモジュールだけにする (evals/metrics
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
+
+# ⚠️ ragas は generate_text() のたびに https://t.explodinggradients.com へ
+# requests.post でテレメトリを送信する (`ragas/_analytics.py` の track())。
+# GitHub Actions のランナーではこのホストの DNS 解決が通らず、getaddrinfo のリトライ待ちで
+# 1 呼び出しあたり約 10 秒が加算されていた (cProfile 実測: 10.7 秒中 10.0 秒が time.sleep、
+# 本来の Bedrock 呼び出しは 0.7 秒)。judge は 25 問で 200 回超呼ばれるため、これだけで
+# CI の judge フェーズが 2 分 → 58 分に膨らんでいた。
+#
+# ⚠️ 値は文字列 "true" でなければならない。ragas 側の判定が
+#    `os.environ.get(...).lower() == "true"` の完全一致なので、"1" や "yes" では
+#    黙って無効化されない。
+#
+# ragas の import より前に設定する必要があるため、モジュール先頭に置いている
+# (ragas 本体の import は score_generation() 内の遅延 import)。
+os.environ.setdefault("RAGAS_DO_NOT_TRACK", "true")
 
 # ragas 0.4.3 は `ragas.metrics` から Faithfulness/FactualCorrectness/LLMContextRecall を
 # import すると DeprecationWarning を出す (v1.0 で `ragas.metrics.collections` に統合予定)。
