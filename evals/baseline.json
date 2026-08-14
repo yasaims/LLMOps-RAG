@@ -1,6 +1,6 @@
 {
   "updated_at": "2026-08-14T11:58:44.271989+00:00",
-  "dataset_sha256": "3ec628d5d1177e0eb30b7ce04ad02b9df821445edb1c92233e2af7d9779b256a",
+  "dataset_sha256": "b2f83681fc6e757ab64912aa6530faafddb602ead62b44d2b879795adc53c5d8",
   "metrics": {
     "recall@1": 0.32,
     "recall@3": 0.6,
