@@ -53,7 +53,24 @@ class EvalReport:
 
 
 def dataset_sha256(dataset_path: Path) -> str:
-    return hashlib.sha256(dataset_path.read_bytes()).hexdigest()
+    """データセット「内容」の SHA-256。
+
+    ⚠️ 生バイトではなく、改行を LF に正規化してからハッシュする。このリポジトリは
+    `core.autocrlf=true` のため、同じファイルでもチェックアウト環境でバイト列が変わる:
+
+        Windows ワーキングツリー (CRLF) : 3ec628d5...
+        Linux / GitHub Actions   (LF)  : b2f83681...
+
+    baseline の `dataset_sha256` は Windows でローカル実行した `--update-baseline` が
+    書き込む一方、CI は Linux で計算するため、生バイトだと**必ず**食い違う。その結果
+    `evaluate_gate()` の `dataset_changed` が常に True になり、baseline 比較が無効化されて
+    floor のみの判定に落ちていた (tolerance 判定が CI で一度も作動していなかった)。
+
+    `.gitattributes` の `*.jsonl text eol=lf` でチェックアウト側も固定しているが、
+    そちらは各自の git 設定に依存しうるので、ハッシュ側でも正規化して二重に守る。
+    """
+    normalized = dataset_path.read_bytes().replace(b"\r\n", b"\n")
+    return hashlib.sha256(normalized).hexdigest()
 
 
 def load_baseline(path: Path) -> dict[str, Any]:

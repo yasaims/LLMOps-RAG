@@ -1,0 +1,8 @@
+# 評価データセットは内容の SHA-256 を baseline に記録して CI と突き合わせるため、
+# チェックアウト環境で改行が変わるとハッシュが一致しなくなる。
+# core.autocrlf=true の Windows で作った baseline が Linux の CI と食い違い、
+# baseline 比較が常に無効化されていた (issue #4)。
+#
+# ハッシュ側 (evals/report.py の dataset_sha256) でも LF に正規化しているが、
+# チェックアウトも固定して二重に守る。
+*.jsonl text eol=lf
