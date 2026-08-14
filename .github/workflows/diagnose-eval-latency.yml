@@ -1,0 +1,43 @@
+name: Diagnose Eval Latency
+
+# [一時的] judge フェーズが CI でのみ約 30 倍遅い原因を切り分けるための手動ワークフロー。
+# 呼び出しは 1 層あたり 3 回 × 3 層 = 9 回程度で、課金への影響は無視できる。
+# 原因が判明したら evals/diagnose_latency.py ごと削除すること。
+
+# diag/** ブランチへの push で起動する。workflow_dispatch はワークフローがデフォルト
+# ブランチ (main) に存在しないと登録されず、この診断のために main を触りたくないため。
+# また diag/** は eval.yml のトリガー (pull_request → main) に該当しないので、
+# 診断のたびに 60 分 / 約 $1 の本番 eval が巻き添えで走ることもない。
+on:
+  push:
+    branches:
+      - "diag/**"
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10.0.1
+        with:
+          enable-cache: true
+
+      - name: uv sync (eval グループ込み)
+        run: uv sync --frozen --group eval
+
+      - name: Configure AWS credentials (eval, read-only)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_EVAL }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: 層ごとのレイテンシを計測
+        run: uv run python -m evals.diagnose_latency
