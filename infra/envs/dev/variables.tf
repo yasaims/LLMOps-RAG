@@ -55,8 +55,13 @@ variable "log_level" {
 
 variable "lambda_reserved_concurrency" {
   type        = number
-  description = "コスト暴走ガード。同時実行数の上限"
-  default     = 2
+  description = <<-EOT
+    コスト暴走ガード。同時実行数の上限 (0 なら予約なし)。
+    ⚠️ このデプロイ先アカウントは Lambda の同時実行数上限がアカウント全体で 10 しかなく、
+    1 以上を指定すると PutFunctionConcurrency が失敗する (ADR 0006)。CI は gitignore された
+    terraform.tfvars を読まないため、default は必ず 0 のままにしておくこと。
+  EOT
+  default     = 0
 }
 
 variable "throttling_rate_limit" {
@@ -72,6 +77,16 @@ variable "throttling_burst_limit" {
 variable "notification_email" {
   type        = string
   description = "Budgets/CloudWatch アラームの通知先"
+  # ⚠️ public リポジトリの CI が terraform plan を実行し、結果を PR に自動コメントする
+  # (Phase 3)。sensitive を外すと SNS subscription / Budgets の subscriber_email_addresses
+  # に生メールが表示され、そのまま PR コメントに個人情報が晒される。
+  sensitive = true
+}
+
+variable "github_repo" {
+  type        = string
+  description = "GitHub OIDC の trust policy で参照するリポジトリ (owner/repo)"
+  default     = "yasaims/LLMOps-RAG"
 }
 
 variable "monthly_budget_usd" {

@@ -70,13 +70,13 @@ resource "aws_iam_role_policy" "lambda" {
 }
 
 resource "aws_lambda_function" "api" {
-  function_name                  = local.function_name
-  role                           = aws_iam_role.lambda.arn
-  package_type                   = "Image"
-  image_uri                      = var.image_uri
-  architectures                  = ["x86_64"]
-  memory_size                    = var.lambda_memory_mb
-  timeout                        = var.lambda_timeout_s
+  function_name = local.function_name
+  role          = aws_iam_role.lambda.arn
+  package_type  = "Image"
+  image_uri     = var.image_uri
+  architectures = ["x86_64"]
+  memory_size   = var.lambda_memory_mb
+  timeout       = var.lambda_timeout_s
   # 0 (または未設定) の場合はアカウントの同時実行数上限が小さく reserved を
   # 確保できない環境向けに null (予約なし) にする。詳細は ADR 0006 を参照
   reserved_concurrent_executions = var.reserved_concurrency > 0 ? var.reserved_concurrency : null

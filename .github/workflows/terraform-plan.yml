@@ -1,0 +1,131 @@
+name: Terraform Plan
+
+# infra/ を触る PR に対して terraform plan を実行し、結果を PR にコメントする (情報提供目的)。
+# 必須チェックにはしない — paths フィルタでスキップされたワークフローはチェック自体が
+# 生成されないため、必須チェックにすると PR が永久にマージ不能になる (eval.yml との違い)。
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "infra/**"
+      - ".github/workflows/terraform-plan.yml"
+
+concurrency:
+  group: tf-plan-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  plan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Configure AWS credentials (plan, read-only)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TF_PLAN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_wrapper: false
+
+      - name: terraform fmt -check
+        run: terraform fmt -check -recursive infra/
+
+      - name: 現行 image_uri を取得 (インフラのみの PR で差分ノイズを出さないため)
+        id: image
+        run: |
+          URI=$(aws lambda get-function --function-name "${{ vars.LAMBDA_FUNCTION_NAME }}" \
+            --query "Code.ImageUri" --output text 2>/dev/null || true)
+          if [ -z "$URI" ] || [ "$URI" == "None" ]; then
+            URI="${{ vars.ECR_REPOSITORY }}:latest"
+            echo "::warning::現行 Lambda イメージを取得できなかったため :latest にフォールバックします"
+          fi
+          echo "uri=$URI" >> "$GITHUB_OUTPUT"
+
+      - name: terraform init
+        working-directory: infra/envs/dev
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ vars.TF_BACKEND_BUCKET }}" \
+            -backend-config="key=${{ vars.TF_BACKEND_KEY }}" \
+            -backend-config="region=${{ vars.AWS_REGION }}" \
+            -backend-config="use_lockfile=true"
+
+      - name: terraform validate
+        working-directory: infra/envs/dev
+        run: terraform validate
+
+      - name: terraform plan
+        id: plan
+        working-directory: infra/envs/dev
+        env:
+          TF_VAR_image_uri: ${{ steps.image.outputs.uri }}
+          TF_VAR_notification_email: ${{ secrets.NOTIFICATION_EMAIL }}
+        run: |
+          set +e
+          terraform plan -no-color -input=false -lock-timeout=5m -detailed-exitcode -out=tfplan
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          set -e
+
+      - name: terraform show
+        if: always()
+        id: show
+        working-directory: infra/envs/dev
+        run: |
+          {
+            echo 'output<<TFPLAN_EOF'
+            terraform show -no-color tfplan 2>/dev/null || echo "(plan の生成に失敗しました。Actions のログを参照してください)"
+            echo 'TFPLAN_EOF'
+          } >> "$GITHUB_OUTPUT"
+
+      - name: PR に plan 結果をコメント (upsert)
+        if: always()
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const marker = "<!-- terraform-plan:dev -->";
+            let body = ${{ toJSON(steps.show.outputs.output) }};
+            const MAX = 60000;
+            if (body.length > MAX) {
+              body = body.slice(0, MAX) + "\n\n... (省略。全文は Actions のログを参照してください)";
+            }
+            const exitCode = "${{ steps.plan.outputs.exit_code }}";
+            const status =
+              exitCode === "0" ? "変更なし" : exitCode === "2" ? "変更あり" : `失敗 (exit ${exitCode})`;
+            const comment =
+              `${marker}\n### Terraform Plan (infra/envs/dev) — ${status}\n\n` +
+              `<details><summary>plan 全文</summary>\n\n\`\`\`\n${body}\n\`\`\`\n</details>\n`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find((c) => c.body && c.body.startsWith(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: comment,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment,
+              });
+            }
+
+      - name: plan が失敗していたらジョブも失敗にする
+        if: steps.plan.outputs.exit_code == '1'
+        run: exit 1

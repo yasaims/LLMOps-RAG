@@ -13,3 +13,7 @@ output "vector_bucket" {
 output "vector_index" {
   value = module.vector_store.index_name
 }
+
+output "eval_ci_role_arn" {
+  value = module.ci_eval.role_arn
+}

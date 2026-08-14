@@ -67,11 +67,14 @@ def embed_query(text: str) -> list[float]:
 
 @_retry_throttled
 def converse(
-    system: str, messages: list[dict[str, Any]], max_tokens: int | None = None
+    system: str,
+    messages: list[dict[str, Any]],
+    max_tokens: int | None = None,
+    model_id: str | None = None,
 ) -> dict[str, Any]:
     settings = get_settings()
     resp = _client().converse(
-        modelId=settings.bedrock_chat_model_id,
+        modelId=model_id or settings.bedrock_chat_model_id,
         system=[{"text": system}],
         messages=messages,
         inferenceConfig={"maxTokens": max_tokens or settings.bedrock_max_tokens},

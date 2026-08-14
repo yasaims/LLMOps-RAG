@@ -1,6 +1,8 @@
 # LLMOps-RAG
 
 [![CI](https://github.com/yasaims/LLMOps-RAG/actions/workflows/ci.yml/badge.svg)](https://github.com/yasaims/LLMOps-RAG/actions/workflows/ci.yml)
+[![Eval](https://github.com/yasaims/LLMOps-RAG/actions/workflows/eval.yml/badge.svg)](https://github.com/yasaims/LLMOps-RAG/actions/workflows/eval.yml)
+[![Terraform Apply](https://github.com/yasaims/LLMOps-RAG/actions/workflows/terraform-apply.yml/badge.svg)](https://github.com/yasaims/LLMOps-RAG/actions/workflows/terraform-apply.yml)
 
 AWS 公式ドキュメント (Bedrock ユーザーガイド) に対する日本語 Q&A RAG システム。
 評価 (eval) を CI に組み込む LLMOps 基盤構築の練習用ポートフォリオプロジェクト。
@@ -14,6 +16,8 @@ AWS 公式ドキュメント (Bedrock ユーザーガイド) に対する日本�
 - **ベクトルストア**: pgvector (Phase 1 ローカル) / S3 Vectors (Phase 2 AWS) — [ADR 0001](docs/adr/0001-vector-store-selection.md) / [ADR 0005](docs/adr/0005-s3-vectors-for-phase2.md)
 - **チャンク分割**: 見出し認識 + スライディングウィンドウ — [ADR 0003](docs/adr/0003-chunking-strategy.md)
 - **実行基盤**: Lambda (コンテナイメージ) + API Gateway HTTP API — [ADR 0006](docs/adr/0006-lambda-container-http-api.md)
+- **評価**: 検索は決定的指標 (recall@k/MRR)、生成は Ragas + Bedrock judge — [ADR 0007](docs/adr/0007-eval-with-ragas-subset.md)
+- **CI/CD**: GitHub OIDC (長期キーなし) + plan/apply/eval の 3 ロール — [ADR 0008](docs/adr/0008-github-oidc-iam-roles.md) / [ADR 0009](docs/adr/0009-cicd-quality-gate.md)
 
 ## ローカル起動手順
 
@@ -38,10 +42,24 @@ uv run ruff check .
 uv run pytest -m "not integration"
 ```
 
-## AWS へのデプロイ (Phase 2)
+## 評価 (Phase 3)
 
 ```bash
-# 1. tfstate 用 S3 + ECR (一度だけ)
+uv sync --group eval
+uv run python -m evals.run_eval --dataset evals/datasets/bedrock-ug-qa.jsonl --baseline evals/baseline.json
+```
+
+PR ごとに `eval.yml` が本番 S3 Vectors に対して RAG 品質を評価し、`evals/baseline.json` からの
+リグレッションがあればマージをブロックする。詳細は [ADR 0007](docs/adr/0007-eval-with-ragas-subset.md)。
+
+## AWS へのデプロイ
+
+Phase 3 以降、`main` へのマージで `terraform-apply.yml` がイメージ build & push →
+`terraform apply` → `/healthz` スモークテストまで自動実行する ([ADR 0009](docs/adr/0009-cicd-quality-gate.md))。
+以下は初回セットアップ・手動デプロイ用の手順:
+
+```bash
+# 1. tfstate 用 S3 + ECR + GitHub OIDC ロール (一度だけ)
 terraform -chdir=infra/bootstrap init && terraform -chdir=infra/bootstrap apply
 
 # 2. Lambda 用イメージを build & push

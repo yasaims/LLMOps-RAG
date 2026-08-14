@@ -1,0 +1,119 @@
+name: Terraform Apply
+
+# main マージで「イメージ build & push → terraform apply → /healthz スモークテスト」まで
+# 通しで実行する。scripts/push_image.ps1 はローカル緊急デプロイ用として残しているが、
+# 通常の Phase 3 以降のデプロイ経路はこのワークフローが正。
+# 取り込み (ingest.py / migrate_to_s3vectors.py) は Phase 2 の方針どおりここには載せない。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "infra/**"
+      - "Dockerfile"
+      - "pyproject.toml"
+      - "uv.lock"
+      - ".github/workflows/terraform-apply.yml"
+  workflow_dispatch:
+
+concurrency:
+  # apply は絶対にキャンセルしない (state 破損を避ける)
+  group: tf-apply-dev
+  cancel-in-progress: false
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    outputs:
+      image_uri: ${{ steps.build.outputs.image_uri }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: astral-sh/setup-uv@v10
+        with:
+          enable-cache: true
+
+      - name: requirements.txt を生成 (scripts/push_image.ps1 と同じ手順)
+        run: uv export --no-dev --no-emit-project --frozen -o requirements.txt
+
+      - name: Configure AWS credentials (apply)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TF_APPLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: ECR にログイン
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: docker build & push
+        id: build
+        env:
+          REGISTRY: ${{ steps.ecr.outputs.registry }}
+          REPOSITORY: ${{ vars.ECR_REPOSITORY }}
+          SHA: ${{ github.sha }}
+        run: |
+          TAG="${SHA:0:7}"
+          # ubuntu runner はネイティブ amd64 なので --platform 指定に QEMU 変換は発生しない
+          # (Windows 開発機からのクロスビルドを避けるためだった scripts/push_image.ps1 の
+          # 事情はここでは当てはまらないが、イメージの再現性のため明示は残す)
+          docker build --platform linux/amd64 \
+            -t "$REGISTRY/$REPOSITORY:$TAG" \
+            -t "$REGISTRY/$REPOSITORY:latest" \
+            .
+          docker push "$REGISTRY/$REPOSITORY:$TAG"
+          docker push "$REGISTRY/$REPOSITORY:latest"
+          echo "image_uri=$REGISTRY/$REPOSITORY:$TAG" >> "$GITHUB_OUTPUT"
+
+  terraform:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Configure AWS credentials (apply)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_TF_APPLY }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_wrapper: false
+
+      - name: terraform init
+        working-directory: infra/envs/dev
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ vars.TF_BACKEND_BUCKET }}" \
+            -backend-config="key=${{ vars.TF_BACKEND_KEY }}" \
+            -backend-config="region=${{ vars.AWS_REGION }}" \
+            -backend-config="use_lockfile=true"
+
+      - name: terraform apply
+        working-directory: infra/envs/dev
+        env:
+          TF_VAR_image_uri: ${{ needs.build-and-push.outputs.image_uri }}
+          TF_VAR_notification_email: ${{ secrets.NOTIFICATION_EMAIL }}
+        run: terraform apply -auto-approve -input=false -lock-timeout=5m
+
+      - name: /healthz スモークテスト
+        working-directory: infra/envs/dev
+        run: |
+          ENDPOINT=$(terraform output -raw api_endpoint)
+          for i in 1 2 3 4 5; do
+            RESP=$(curl -fsS "${ENDPOINT}healthz" || true)
+            echo "$RESP"
+            if echo "$RESP" | grep -q '"status":"ok"'; then
+              echo "healthz OK"
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::healthz が ok を返しませんでした (デプロイ後の Lambda cold start か設定ミスの可能性)"
+          exit 1

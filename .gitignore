@@ -234,6 +234,12 @@ __marimo__/
 /infra/envs/*/backend.hcl
 /infra/envs/*/terraform.tfvars
 
+# Project: evals (Phase 3) — レビュー前のドラフト・実行結果は非コミット。
+# evals/datasets/*.jsonl (末尾に -qa.jsonl が付く確定版) と evals/baseline.json はコミット対象
+/evals/out/
+/evals/datasets/_review/
+/evals/datasets/*.draft.jsonl
+
 
 .vscode
 CLAUDE.md
