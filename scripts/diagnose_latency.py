@@ -26,56 +26,82 @@ N = int(os.environ.get("PROBE_N", "3"))
 PROMPT = "Reply with exactly one word: ok"
 
 
-def _report(label: str, samples: list[float]) -> None:
+def _report(label: str, samples: list[tuple[float, float]]) -> None:
+    """samples は (実時間, CPU時間) の組。
+
+    実時間 ≒ CPU時間 なら計算で焼いている (CPU バウンド)。
+    実時間 >> CPU時間 なら待っている (I/O・sleep・ロック)。この 1 点で対処法が変わる。
+    """
     if not samples:
         print(f"{label:<38} 計測できませんでした")
         return
-    each = ", ".join(f"{s:.2f}" for s in samples)
-    med = statistics.median(samples)
-    print(f"{label:<38} 中央値 {med:6.2f}s  (各回: {each})")
+    each = ", ".join(f"{w:.2f}" for w, _ in samples)
+    med_wall = statistics.median([w for w, _ in samples])
+    med_cpu = statistics.median([c for _, c in samples])
+    verdict = "CPU バウンド" if med_cpu > med_wall * 0.5 else "待ち (I/O・sleep)"
+    print(f"{label:<38} 実時間 {med_wall:6.2f}s / CPU {med_cpu:6.2f}s  → {verdict}  (各回: {each})")
 
 
-def probe_boto3() -> list[float]:
+def _timed(fn) -> tuple[float, float]:
+    w0, c0 = time.perf_counter(), time.process_time()
+    fn()
+    return time.perf_counter() - w0, time.process_time() - c0
+
+
+def probe_boto3() -> list[tuple[float, float]]:
     import boto3
 
     client = boto3.client("bedrock-runtime", region_name=REGION)
-    samples = []
-    for _ in range(N):
-        t0 = time.perf_counter()
+
+    def call() -> None:
         client.converse(
             modelId=MODEL,
             messages=[{"role": "user", "content": [{"text": PROMPT}]}],
             inferenceConfig={"maxTokens": 16, "temperature": 0},
         )
-        samples.append(time.perf_counter() - t0)
-    return samples
+
+    return [_timed(call) for _ in range(N)]
 
 
-def probe_langchain() -> list[float]:
+def probe_langchain() -> list[tuple[float, float]]:
     from langchain_aws import ChatBedrockConverse
 
     llm = ChatBedrockConverse(model=MODEL, region_name=REGION, temperature=0, max_tokens=16)
-    samples = []
-    for _ in range(N):
-        t0 = time.perf_counter()
-        llm.invoke(PROMPT)
-        samples.append(time.perf_counter() - t0)
-    return samples
+    return [_timed(lambda: llm.invoke(PROMPT)) for _ in range(N)]
 
 
-def probe_ragas_wrapper() -> list[float]:
+def _ragas_call():
     from langchain_aws import ChatBedrockConverse
     from langchain_core.prompt_values import StringPromptValue
     from ragas.llms import LangchainLLMWrapper
 
     llm = ChatBedrockConverse(model=MODEL, region_name=REGION, temperature=0, max_tokens=16)
     wrapper = LangchainLLMWrapper(llm)
-    samples = []
-    for _ in range(N):
-        t0 = time.perf_counter()
-        wrapper.generate_text(StringPromptValue(text=PROMPT), n=1)
-        samples.append(time.perf_counter() - t0)
-    return samples
+    return lambda: wrapper.generate_text(StringPromptValue(text=PROMPT), n=1)
+
+
+def probe_ragas_wrapper() -> list[tuple[float, float]]:
+    call = _ragas_call()
+    return [_timed(call) for _ in range(N)]
+
+
+def profile_ragas_wrapper() -> None:
+    """10 秒がどの関数に入っているかを名指しする。"""
+    import cProfile
+    import io
+    import pstats
+
+    call = _ragas_call()
+    call()  # 初回の遅延初期化をプロファイルから除く
+
+    pr = cProfile.Profile()
+    pr.enable()
+    call()
+    pr.disable()
+
+    buf = io.StringIO()
+    pstats.Stats(pr, stream=buf).sort_stats("cumulative").print_stats(25)
+    print(buf.getvalue())
 
 
 def main() -> None:
@@ -108,6 +134,13 @@ def main() -> None:
             _report(label, fn())
         except Exception as e:  # noqa: BLE001 - 診断用途なので握りつぶして次の層へ進む
             print(f"{label:<38} 例外: {type(e).__name__}: {e}")
+
+    print()
+    print("=== ragas ラッパー 1 回分の cProfile (cumulative 上位 25) ===")
+    try:
+        profile_ragas_wrapper()
+    except Exception as e:  # noqa: BLE001
+        print(f"プロファイル取得に失敗: {type(e).__name__}: {e}")
 
 
 if __name__ == "__main__":
