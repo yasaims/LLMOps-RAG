@@ -40,8 +40,21 @@ def score_generation(
     judge_model_id: str,
     region: str,
     max_workers: int = 4,
+    timeout: int = 600,
 ) -> list[GenerationScore]:
-    """Faithfulness / FactualCorrectness / LLMContextRecall を Bedrock judge で採点する。"""
+    """Faithfulness / FactualCorrectness / LLMContextRecall を Bedrock judge で採点する。
+
+    ⚠️ timeout の既定値を 180 → 600 秒に引き上げてある。3 メトリクスのうち
+    FactualCorrectness だけが桁違いに重く (回答と参照の双方を claim に分解してから
+    双方向 NLI を回すため 1 サンプルあたり LLM 呼び出しが 4 回前後、日本語の長文回答では
+    さらに伸びる)、180 秒では CI 上で全 25 問が例外なくタイムアウトしていた。
+    スロットリング由来ではない (実行ログに Throttling / retry の記録がない) ため、
+    上限そのものが低すぎたと判断している。
+
+    暴走の歯止めは呼び出し側の 2 段構えに任せる:
+      - eval.yml の job 単位 `timeout-minutes`
+      - run_eval.py の judge カバレッジ検査 (NaN 混入時は exit 2)
+    """
     if not samples:
         return []
 
@@ -69,7 +82,7 @@ def score_generation(
         dataset,
         metrics=[Faithfulness(), FactualCorrectness(), LLMContextRecall()],
         llm=evaluator_llm,
-        run_config=RunConfig(max_workers=max_workers, max_retries=5, timeout=180, seed=42),
+        run_config=RunConfig(max_workers=max_workers, max_retries=5, timeout=timeout, seed=42),
         raise_exceptions=False,
         show_progress=False,
     )

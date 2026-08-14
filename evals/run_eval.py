@@ -29,10 +29,24 @@ from evals.metrics import (
     mean_reciprocal_rank,
     recall_at_k,
 )
-from evals.report import build_report, dataset_sha256, load_baseline, render_markdown
+from evals.report import (
+    build_report,
+    dataset_sha256,
+    insufficient_judge_coverage,
+    load_baseline,
+    render_markdown,
+)
 
 DEFAULT_JUDGE_MODEL = "jp.anthropic.claude-haiku-4-5-20251001-v1:0"
 DEFAULT_JUDGE_REGION = "ap-northeast-1"
+
+GENERATION_METRIC_KEYS = ("faithfulness", "factual_correctness", "context_recall")
+
+# judge が採点できた問題の割合がこれを下回ったら、品質判定そのものを信用しない。
+# ragas は raise_exceptions=False の下でタイムアウトを NaN として返し、平均は NaN を
+# 除外して計算されるため、この検査がないと「25 問中 5 問だけの平均」が高スコアを出して
+# ゲートを通過してしまう (2026-08 に FactualCorrectness が全問タイムアウトして発覚)。
+MIN_JUDGE_COVERAGE = 0.8
 
 
 def _load_dataset(path: Path) -> list[dict[str, Any]]:
@@ -114,6 +128,7 @@ def run(
         ),
     }
 
+    judge_coverage: dict[str, int] | None = None
     if not no_judge:
         try:
             samples = [
@@ -142,6 +157,13 @@ def run(
             values = [q[key] for q in per_question if q.get(key) == q.get(key)]  # NaN 除外
             return sum(values) / len(values) if values else float("nan")
 
+        # NaN を落とした平均は「何問から算出したか」を失う。母数を別途記録しておかないと
+        # 一部しか採点できていない実行と全問採点できた実行を区別できない。
+        judge_coverage = {
+            key: sum(1 for q in per_question if q.get(key) == q.get(key))
+            for key in GENERATION_METRIC_KEYS
+        }
+
         metrics["faithfulness"] = _mean("faithfulness")
         metrics["factual_correctness"] = _mean("factual_correctness")
         metrics["context_recall"] = _mean("context_recall")
@@ -156,6 +178,7 @@ def run(
         baseline=baseline,
         current_dataset_sha256=current_sha,
         n_questions=len(dataset),
+        judge_coverage=judge_coverage,
     )
 
     worst = [
@@ -173,6 +196,7 @@ def run(
                 "n_questions": len(dataset),
                 "top_k": top_k,
                 "metrics": metrics,
+                "judge_coverage": judge_coverage,
                 "passed": report.passed,
                 "per_question": per_question,
             },
@@ -193,11 +217,32 @@ def run(
             with step_summary.open("a", encoding="utf-8") as f:
                 f.write(summary_md + "\n")
 
+    # ⚠️ カバレッジ検査はレポートを書き出した「後」に行う。先に return すると Artifact と
+    # PR コメントが生成されず、何問落ちたのかを追う手段がなくなる。
+    if judge_coverage:
+        insufficient = insufficient_judge_coverage(judge_coverage, len(dataset), MIN_JUDGE_COVERAGE)
+        if insufficient:
+            detail = ", ".join(f"{k} {n}/{len(dataset)}" for k, n in sorted(insufficient.items()))
+            print(
+                f"エラー: judge の有効サンプルが下限 {MIN_JUDGE_COVERAGE:.0%} を"
+                f"下回りました ({detail})。"
+                "残った問題だけの平均で品質を判定すると誤った合格を出すため、"
+                "品質リグレッション (exit 1) ではなく運用エラーとして終了します。",
+                file=sys.stderr,
+            )
+            if update_baseline:
+                print(
+                    "baseline は更新していません (部分的な結果を基準値にしないため)。",
+                    file=sys.stderr,
+                )
+            return 2
+
     if update_baseline:
         new_baseline = {
             "updated_at": datetime.now(tz=UTC).isoformat(),
             "dataset_sha256": current_sha,
             "metrics": metrics,
+            "judge_coverage": judge_coverage,
             "gate": baseline.get("gate") or _default_gate(),
         }
         baseline_path.write_text(

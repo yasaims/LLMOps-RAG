@@ -1,4 +1,9 @@
-from evals.report import build_report, evaluate_gate, render_markdown
+from evals.report import (
+    build_report,
+    evaluate_gate,
+    insufficient_judge_coverage,
+    render_markdown,
+)
 
 
 def _baseline(**overrides):
@@ -114,3 +119,82 @@ def test_render_markdown_includes_reference_metrics_and_worst_questions():
     assert "mrr: 0.550" in md
     assert "q1" in md
     assert "合格" in md
+
+
+def test_judge_coverage_defaults_to_none_and_reports_no_incomplete_metrics():
+    report = build_report(
+        metrics={"recall@5": 0.85, "generation_score": 0.90},
+        baseline=_baseline(),
+        current_dataset_sha256="abc123",
+        n_questions=25,
+    )
+    assert report.judge_coverage is None
+    assert report.incomplete_metrics == {}
+    assert "judge 有効サンプル" not in render_markdown(report)
+
+
+def test_full_judge_coverage_is_rendered_without_warning():
+    report = build_report(
+        metrics={"recall@5": 0.85, "generation_score": 0.90},
+        baseline=_baseline(),
+        current_dataset_sha256="abc123",
+        n_questions=25,
+        judge_coverage={"faithfulness": 25, "factual_correctness": 25, "context_recall": 25},
+    )
+    md = render_markdown(report)
+    assert report.incomplete_metrics == {}
+    assert "factual_correctness 25/25" in md
+    assert "採点できた問題だけの平均" not in md
+
+
+def test_partial_judge_coverage_is_flagged_in_markdown():
+    """タイムアウトで一部しか採点できていないとき、平均値だけを見て合格と読ませない。"""
+    report = build_report(
+        metrics={"recall@5": 0.85, "generation_score": 0.95},
+        baseline=_baseline(),
+        current_dataset_sha256="abc123",
+        n_questions=25,
+        judge_coverage={"faithfulness": 25, "factual_correctness": 5, "context_recall": 25},
+    )
+    md = render_markdown(report)
+    assert report.incomplete_metrics == {"factual_correctness": 5}
+    assert "factual_correctness 5/25 ⚠️" in md
+    assert "採点できた問題だけの平均" in md
+    # ゲート自体は数値上通ってしまう。だからこそレポートに警告が出る必要がある。
+    assert report.passed is True
+
+
+def test_full_coverage_passes_the_check():
+    assert insufficient_judge_coverage({"faithfulness": 25}, n_questions=25, min_coverage=0.8) == {}
+
+
+def test_coverage_exactly_at_the_threshold_passes():
+    """20/25 = 0.80 はちょうど下限。「下回った」ではないので通す。"""
+    assert insufficient_judge_coverage({"faithfulness": 20}, n_questions=25, min_coverage=0.8) == {}
+
+
+def test_coverage_below_threshold_is_reported():
+    assert insufficient_judge_coverage(
+        {"faithfulness": 25, "factual_correctness": 19, "context_recall": 25},
+        n_questions=25,
+        min_coverage=0.8,
+    ) == {"factual_correctness": 19}
+
+
+def test_all_metrics_timed_out_are_all_reported():
+    assert insufficient_judge_coverage(
+        {"faithfulness": 0, "factual_correctness": 0, "context_recall": 0},
+        n_questions=25,
+        min_coverage=0.8,
+    ) == {"faithfulness": 0, "factual_correctness": 0, "context_recall": 0}
+
+
+def test_no_judge_run_is_not_subject_to_the_check():
+    assert insufficient_judge_coverage(None, n_questions=25, min_coverage=0.8) == {}
+    assert insufficient_judge_coverage({}, n_questions=25, min_coverage=0.8) == {}
+
+
+def test_empty_dataset_is_treated_as_insufficient_not_as_perfect_coverage():
+    assert insufficient_judge_coverage({"faithfulness": 0}, n_questions=0, min_coverage=0.8) == {
+        "faithfulness": 0
+    }

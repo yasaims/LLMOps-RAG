@@ -32,6 +32,17 @@ class EvalReport:
     baseline_dataset_sha256: str | None
     n_questions: int
     passed: bool
+    # 生成指標ごとの「judge が実際に採点できた問題数」。ragas は raise_exceptions=False の
+    # 下でタイムアウトしたサンプルを NaN にし、run_eval 側の平均は NaN を除外するため、
+    # これがないと「25 問中 5 問だけの平均」が満点近くでゲートを通過してしまう。
+    judge_coverage: dict[str, int] | None = None
+
+    @property
+    def incomplete_metrics(self) -> dict[str, int]:
+        """全問を採点しきれなかった生成指標 -> 有効サンプル数。"""
+        if not self.judge_coverage:
+            return {}
+        return {k: v for k, v in self.judge_coverage.items() if v < self.n_questions}
 
     @property
     def dataset_changed(self) -> bool:
@@ -126,11 +137,30 @@ def evaluate_gate(
     return results
 
 
+def insufficient_judge_coverage(
+    judge_coverage: dict[str, int] | None,
+    n_questions: int,
+    min_coverage: float,
+) -> dict[str, int]:
+    """下限を満たさない生成指標 -> 有効サンプル数。空 dict なら検査通過。
+
+    judge を回していない (--no-judge) 場合は judge_coverage が None になり、検査対象外。
+    n_questions が 0 以下なら割合を計算できないので、全指標を不足扱いにする
+    (「0 問中 0 問採点できたので 100%」と読ませないため)。
+    """
+    if not judge_coverage:
+        return {}
+    if n_questions <= 0:
+        return dict(judge_coverage)
+    return {k: v for k, v in judge_coverage.items() if v / n_questions < min_coverage}
+
+
 def build_report(
     metrics: dict[str, float],
     baseline: dict[str, Any],
     current_dataset_sha256: str,
     n_questions: int,
+    judge_coverage: dict[str, int] | None = None,
 ) -> EvalReport:
     gate_results = evaluate_gate(metrics, baseline, current_dataset_sha256)
     passed = all(g.passed for g in gate_results)
@@ -141,6 +171,7 @@ def build_report(
         baseline_dataset_sha256=baseline.get("dataset_sha256"),
         n_questions=n_questions,
         passed=passed,
+        judge_coverage=judge_coverage,
     )
 
 
@@ -151,6 +182,18 @@ def render_markdown(report: EvalReport, worst_questions: list[dict[str, Any]] | 
         f"- 問題数: {report.n_questions}",
         f"- 判定: {'✅ 合格' if report.passed else '❌ 不合格'}",
     ]
+    if report.judge_coverage:
+        parts = []
+        for name, n_valid in sorted(report.judge_coverage.items()):
+            mark = "" if n_valid >= report.n_questions else " ⚠️"
+            parts.append(f"{name} {n_valid}/{report.n_questions}{mark}")
+        lines.append(f"- judge 有効サンプル: {', '.join(parts)}")
+    if report.incomplete_metrics:
+        lines.append(
+            "- ⚠️ judge が一部の問題を採点できていません (タイムアウト等)。"
+            "下記スコアは**採点できた問題だけの平均**であり、母数が異なるため "
+            "baseline との比較は意味を持ちません"
+        )
     if report.dataset_changed:
         lines.append(
             "- ⚠️ データセットが baseline から変更されているため、"

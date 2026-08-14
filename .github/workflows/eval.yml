@@ -25,6 +25,11 @@ permissions:
 jobs:
   eval:
     runs-on: ubuntu-latest
+    # ⚠️ 明示しないと GitHub 既定の 360 分 (6 時間) まで走り続ける。judge がタイムアウトを
+    # 繰り返すと、Bedrock 課金を垂れ流したまま誰も気づかない状態になりうる (2026-08 に
+    # RunConfig の timeout 超過で 1 実行あたり 50 分規模まで伸びた実績あり)。
+    # 健全時の実測目安は 検索+生成 約 5 分 + judge 約 30 分 なので、その 1.7 倍を上限とする。
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v7
         with:
