@@ -314,6 +314,43 @@ data "aws_iam_policy_document" "apply_stack_compute" {
     actions   = ["iam:GetOpenIDConnectProvider", "iam:ListOpenIDConnectProviders"]
     resources = ["*"]
   }
+  statement {
+    # ⚠️ logs:DescribeLogGroups は AWS のサービス認可リファレンス
+    #    (Actions, resources, and condition keys for Amazon CloudWatch Logs) 上
+    #    「Resource types」列が空 = リソースタイプが一切定義されていないアクション。
+    #    ARN パターン (例: log-group:* ですら) を Resource に指定しても
+    #    `aws iam simulate-principal-policy` で implicitDeny のままになる
+    #    (--resource-arns を付けても付けなくても)。Resource は文字どおり "*" でなければ
+    #    ならない。LogsManage の /aws/lambda/${dev_prefix}-* 等のプレフィックス ARN では
+    #    絶対にマッチしない (2026-08 の初回 CI apply がこれで失敗した。当初
+    #    log-group:* に緩めたが、それでも implicitDeny のままだったため Resource = "*"
+    #    に修正した経緯がある)。読み取り専用の List アクションなので許容する。
+    sid       = "LogsDescribeAccountLevel"
+    actions   = ["logs:DescribeLogGroups"]
+    resources = ["*"]
+  }
+  statement {
+    # infra/modules/ci-eval が作る customer-managed policy
+    # (llmops-rag-dev-eval-ci-policy) の管理。IamManageDevRoles は role/${dev_prefix}-*
+    # しかカバーしていないため、policy/${dev_prefix}-* 用に別 statement が要る
+    # (2026-08 の初回 CI apply が iam:GetPolicy の AccessDenied で失敗した)。
+    # guardrail は policy/llmops-rag-ci-* だけを Deny するので競合しない。
+    sid = "IamManageDevPolicies"
+    actions = [
+      "iam:CreatePolicy",
+      "iam:DeletePolicy",
+      "iam:GetPolicy",
+      "iam:GetPolicyVersion",
+      "iam:ListPolicyVersions",
+      "iam:CreatePolicyVersion",
+      "iam:DeletePolicyVersion",
+      "iam:ListEntitiesForPolicy",
+      "iam:ListPolicyTags",
+      "iam:TagPolicy",
+      "iam:UntagPolicy",
+    ]
+    resources = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/${local.dev_prefix}-*"]
+  }
 }
 
 resource "aws_iam_policy" "apply_stack_compute" {

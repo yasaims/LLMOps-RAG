@@ -109,6 +109,29 @@ Phase 3 の CI が当初一度も通らなかったのはこれが原因だっ�
     `ListOpenIDConnectProviders` はリソースレベル権限を持たないアカウント全体アクション
     なので、`--resource-arns` に provider ARN を渡すと実際には許可されていても
     `implicitDeny` と表示される。この 1 件だけは `--resource-arns` なしで確認すること
+- ⚠️ **`Terraform Plan` が通っても `Terraform Apply` の権限は検証されない** (2026-08、
+  PR #2 マージ後の初回 apply で判明)。plan ロールは `ReadOnlyAccess` を持つため大半の
+  読み取りを素通りするが、apply ロールは `${dev_prefix}-*` へのリソースレベル列挙式
+  スコープしか持たない。envs/dev のリソースが一度もこのロールで apply されていなかった
+  ため、以下 2 件が初回 apply まで気づかれなかった:
+  - `logs:DescribeLogGroups` — サービス認可リファレンス
+    ([Actions, resources, and condition keys for Amazon CloudWatch Logs](https://docs.aws.amazon.com/service-authorization/latest/reference/list_logs.html))
+    上「Resource types」列が空欄、つまり**このアクションにはリソースタイプが定義されて
+    いない**。`log-group:/aws/lambda/${dev_prefix}-*` のようなプレフィックス ARN は
+    もちろん、`log-group:*` という緩いパターンでも `simulate-principal-policy` は
+    implicitDeny のまま (`--resource-arns` の有無を問わない)。**`Resource` は文字どおり
+    `"*"` でなければ機能しない**。`DescribeAlarms` (composite alarm 時のみ `*` 必須) との
+    類推で「リスト系はどれも同じ罠」と早合点しないこと — アクションごとにこのリファレンス
+    表で確認するのが確実
+  - `iam:GetPolicy` 等 — `apply_stack_compute` の `IamManageDevRoles` は
+    `role/${dev_prefix}-*` にしかスコープしておらず、`policy/${dev_prefix}-*`
+    (customer-managed policy) への権限が 1 つもなかった。`module.ci_eval` が作る
+    `llmops-rag-dev-eval-ci-policy` の read/update 系が全滅していた。
+    `IamManageDevPolicies` という別 statement を `policy/${dev_prefix}-*` に追加して解決
+  - 恒久対策は取れない (apply ロールを一度も使わずに envs/dev を作った運用そのものが原因)。
+    次善策として `simulate-principal-policy` で apply ロールが要求する主要アクションを
+    棚卸しする際は、対象アクションを 1 つずつ AWS のサービス認可リファレンスと突き合わせ、
+    「Resource types が空欄」のものは無条件で `Resource = "*"` にする
 - **eval ロール**: Lambda 実行ロールと同一の `bedrock:InvokeModel` (embed FM + chat
   推論プロファイル + chat 推論プロファイルのルーティング先 FM) と
   `s3vectors:QueryVectors/GetVectors/GetIndex` のみ。`PutVectors` は含めない
