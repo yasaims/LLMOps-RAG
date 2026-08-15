@@ -88,7 +88,8 @@ flowchart LR
   自動化する ([ADR 0009](adr/0009-cicd-quality-gate.md))
 - 認証は GitHub OIDC (長期アクセスキーなし)。IAM ロールは plan/apply/eval の 3 本に分割し、
   eval ロールは Lambda 実行ロールと同一の最小権限 (ARN を Terraform 出力で共有) にしている
-  ([ADR 0008](adr/0008-github-oidc-iam-roles.md))
+  ([ADR 0008](adr/0008-github-oidc-iam-roles.md))。各ロールの権限詳細・既知の落とし穴は
+  [iam-permissions.md](iam-permissions.md) を参照
 
 ## モデル選定の要約
 
