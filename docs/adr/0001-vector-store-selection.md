@@ -2,7 +2,10 @@
 
 ## ステータス
 
-Accepted (Phase 1 はローカル pgvector で検証、Phase 2 で Aurora Serverless v2 に接続)
+Accepted, Phase 2 で一部変更 ([ADR 0005](0005-s3-vectors-for-phase2.md) を参照)。
+Phase 1 はローカル pgvector で検証。Phase 2 の AWS 上ベクトルストアは
+当初この ADR で決定した Aurora Serverless v2 ではなく S3 Vectors を採用した
+(VPC 常時課金がデモ公開方針と相容れないため)。以下の内容は決定時点の記録として残す。
 
 ## コンテキスト
 

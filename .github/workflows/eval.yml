@@ -1,0 +1,142 @@
+name: Eval
+
+# PR ごとに RAG 品質を評価し、リグレッションがあればマージをブロックする (必須チェック)。
+#
+# ⚠️ workflow レベルの `paths:` は意図的に使っていない。path フィルタでスキップされた
+# ワークフローはチェック自体が生成されず pending のままになり、必須チェックにすると
+# PR が永久にマージ不能になる。代わりにジョブは常に起動し、最初のステップで関連パスの
+# 変更有無を判定して、無関係なら以降のステップを `if:` でスキップして success で終える。
+# これで Bedrock 課金ゼロのまま必須チェックとして機能する。
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: eval-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    # ⚠️ 明示しないと GitHub 既定の 360 分 (6 時間) まで走り続け、Bedrock 課金を
+    # 垂れ流したまま誰も気づかない状態になりうる (2026-08 に ragas のテレメトリ送信が
+    # 1 呼び出しあたり約 10 秒の DNS 待ちを入れ、1 実行 59 分に達した実績あり)。
+    # 原因を除去した後の実測は 25 問で約 5 分 (ローカル 3 分 51 秒) なので、その約 6 倍。
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: 関連パスの変更を判定
+        id: changes
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          CHANGED=$(git diff --name-only "${{ github.event.pull_request.base.sha }}" "${{ github.sha }}")
+          echo "$CHANGED"
+          if echo "$CHANGED" | grep -Eq '^(app/|evals/|pyproject\.toml$|uv\.lock$|\.github/workflows/eval\.yml$)'; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: スキップ (評価対象の変更なし)
+        if: steps.changes.outputs.should_run != 'true'
+        run: echo "評価対象の変更 (app/, evals/, pyproject.toml, uv.lock) がないためスキップしました。" >> "$GITHUB_STEP_SUMMARY"
+
+      - uses: astral-sh/setup-uv@v10.0.1
+        if: steps.changes.outputs.should_run == 'true'
+        with:
+          enable-cache: true
+
+      - name: uv sync (eval グループ込み)
+        if: steps.changes.outputs.should_run == 'true'
+        run: uv sync --frozen --group eval
+
+      - name: Configure AWS credentials (eval, read-only)
+        if: steps.changes.outputs.should_run == 'true'
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_EVAL }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: 評価を実行
+        if: steps.changes.outputs.should_run == 'true'
+        id: run
+        env:
+          # ⚠️ これがないと stdout がブロックバッファリングされ、進捗が一切見えないまま
+          # プロセス終了時に全出力が一括で flush される。実際 59 分間ログが 1 行も出ず、
+          # 「ハングしているのか進行中なのか」を CI ログから判断できなかった。
+          PYTHONUNBUFFERED: "1"
+          VECTOR_STORE: s3vectors
+          S3_VECTORS_BUCKET: ${{ vars.S3_VECTORS_BUCKET }}
+          S3_VECTORS_INDEX: ${{ vars.S3_VECTORS_INDEX }}
+        run: |
+          set +e
+          uv run python -m evals.run_eval \
+            --dataset evals/datasets/bedrock-ug-qa.jsonl \
+            --baseline evals/baseline.json \
+            --out evals/out/report.json
+          echo "exit_code=$?" >> "$GITHUB_OUTPUT"
+          set -e
+
+      - name: レポートを Artifact として保存
+        if: steps.changes.outputs.should_run == 'true' && always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: eval-report
+          path: evals/out/
+          if-no-files-found: ignore
+
+      - name: PR に評価結果をコメント (upsert)
+        if: steps.changes.outputs.should_run == 'true' && always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            const fs = require("fs");
+            const marker = "<!-- eval:dev -->";
+            let body;
+            try {
+              body = fs.readFileSync("evals/out/summary.md", "utf8");
+            } catch {
+              body = "(レポートの読み込みに失敗しました。Actions のログ・Artifact を参照してください)";
+            }
+            const comment = `${marker}\n${body}\n`;
+
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            });
+            const existing = comments.find((c) => c.body && c.body.startsWith(marker));
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body: comment,
+              });
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body: comment,
+              });
+            }
+
+      - name: リグレッション・エラー時はジョブを失敗にする
+        if: steps.changes.outputs.should_run == 'true' && steps.run.outputs.exit_code != '0'
+        run: |
+          echo "evals/run_eval.py が exit code ${{ steps.run.outputs.exit_code }} で終了しました"
+          exit 1

@@ -1,0 +1,4 @@
+bucket       = "llmops-rag-tfstate-<AWS_ACCOUNT_ID>"
+key          = "envs/dev/terraform.tfstate"
+region       = "ap-northeast-1"
+use_lockfile = true

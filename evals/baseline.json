@@ -1,0 +1,38 @@
+{
+  "updated_at": "2026-08-14T11:58:44.271989+00:00",
+  "dataset_sha256": "b2f83681fc6e757ab64912aa6530faafddb602ead62b44d2b879795adc53c5d8",
+  "metrics": {
+    "recall@1": 0.32,
+    "recall@3": 0.6,
+    "recall@5": 0.68,
+    "mrr": 0.4666666666666666,
+    "citation_format_valid": 1.0,
+    "faithfulness": 0.9866666666666667,
+    "factual_correctness": 0.628,
+    "context_recall": 0.8866666666666667,
+    "generation_score": 0.8337777777777777
+  },
+  "judge_coverage": {
+    "faithfulness": 25,
+    "factual_correctness": 25,
+    "context_recall": 25
+  },
+  "gate": {
+    "recall@5": {
+      "tolerance": 0.02,
+      "floor": 0.5
+    },
+    "mrr": {
+      "tolerance": 0.02,
+      "floor": 0.3
+    },
+    "generation_score": {
+      "tolerance": 0.1,
+      "floor": 0.65
+    },
+    "citation_format_valid": {
+      "tolerance": 0.02,
+      "floor": 0.9
+    }
+  }
+}

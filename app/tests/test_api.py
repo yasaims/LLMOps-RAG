@@ -1,44 +1,46 @@
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
-from app import db
 from app.api.main import app
 from app.rag.generate import GenerateResult, Source
+from app.vectorstore import SearchResult
 
 
 @pytest.fixture
 def client():
-    with (
-        patch("app.db.open_pool", return_value=None),
-        patch("app.db.close_pool", return_value=None),
-        TestClient(app) as c,
-    ):
-        yield c
+    fake_store = MagicMock()
+    with patch("app.api.main.get_store", return_value=fake_store):
+        with TestClient(app) as c:
+            yield c, fake_store
 
 
 def test_healthz_ok(client):
-    with patch("app.api.main.db.ping", return_value=True):
-        resp = client.get("/healthz")
+    c, fake_store = client
+    fake_store.ping.return_value = True
+    resp = c.get("/healthz")
 
     assert resp.status_code == 200
+    assert resp.headers["content-type"] == "application/json; charset=utf-8"
     body = resp.json()
     assert body["status"] == "ok"
-    assert body["db"] is True
+    assert body["vector_store"]
 
 
 def test_healthz_db_down(client):
-    with patch("app.api.main.db.ping", return_value=False):
-        resp = client.get("/healthz")
+    c, fake_store = client
+    fake_store.ping.return_value = False
+    resp = c.get("/healthz")
 
     assert resp.status_code == 200
     assert resp.json()["status"] == "error"
 
 
 def test_query_returns_answer_with_numbered_sources(client):
+    c, _ = client
     fake_chunks = [
-        db.SearchResult(
+        SearchResult(
             id=1,
             section="A > B",
             content="content 1",
@@ -48,7 +50,7 @@ def test_query_returns_answer_with_numbered_sources(client):
             source_url="https://example.com/x.pdf",
             score=0.9,
         ),
-        db.SearchResult(
+        SearchResult(
             id=2,
             section="C",
             content="content 2",
@@ -71,7 +73,7 @@ def test_query_returns_answer_with_numbered_sources(client):
         patch("app.api.main.retrieve", return_value=fake_chunks) as mock_retrieve,
         patch("app.api.main.generate_answer", return_value=fake_result) as mock_generate,
     ):
-        resp = client.post("/query", json={"question": "質問文"})
+        resp = c.post("/query", json={"question": "質問文"})
 
     assert resp.status_code == 200
     body = resp.json()
@@ -84,6 +86,7 @@ def test_query_returns_answer_with_numbered_sources(client):
 
 
 def test_query_with_no_matching_chunks_returns_no_sources(client):
+    c, _ = client
     empty_result = GenerateResult(
         answer="提供されたドキュメントには記載がありません。", sources=[], usage={}
     )
@@ -91,7 +94,7 @@ def test_query_with_no_matching_chunks_returns_no_sources(client):
         patch("app.api.main.retrieve", return_value=[]),
         patch("app.api.main.generate_answer", return_value=empty_result),
     ):
-        resp = client.post("/query", json={"question": "無関係の質問"})
+        resp = c.post("/query", json={"question": "無関係の質問"})
 
     assert resp.status_code == 200
     body = resp.json()
@@ -100,5 +103,6 @@ def test_query_with_no_matching_chunks_returns_no_sources(client):
 
 
 def test_query_rejects_empty_question(client):
-    resp = client.post("/query", json={"question": ""})
+    c, _ = client
+    resp = c.post("/query", json={"question": ""})
     assert resp.status_code == 422

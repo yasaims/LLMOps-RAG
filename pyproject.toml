@@ -13,6 +13,7 @@ dependencies = [
     "pypdf>=5.1",
     "httpx>=0.27",
     "tenacity>=9.0",
+    "mangum>=0.19",
 ]
 
 [dependency-groups]
@@ -20,6 +21,14 @@ dev = [
     "ruff>=0.8",
     "pytest>=8.3",
     "pytest-cov>=6.0",
+]
+# PR ごとの RAG 品質評価 (Phase 3, evals/) 専用。ci.yml の `uv sync --frozen` にも
+# Docker の `uv export --no-dev` にも入らない (--group 未指定なら含まれない)。
+# eval.yml のみ `uv sync --frozen --group eval` で導入する。バージョン上限は
+# ragas 0.5/1.0 系の breaking change を踏まないための保険 (ADR 0007)。
+eval = [
+    "ragas>=0.4,<0.5",
+    "langchain-aws>=0.2,<1",
 ]
 
 [tool.ruff]
@@ -30,7 +39,7 @@ target-version = "py312"
 select = ["E", "F", "I", "UP", "B"]
 
 [tool.pytest.ini_options]
-testpaths = ["app/tests"]
+testpaths = ["app/tests", "evals/tests"]
 markers = [
     "integration: DB/Bedrock を実際に叩くテスト (CIでは除外)",
 ]

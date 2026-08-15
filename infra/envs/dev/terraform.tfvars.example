@@ -1,0 +1,5 @@
+# cp terraform.tfvars.example terraform.tfvars して値を埋める
+# (Phase 3 以降、CI からの apply は TF_VAR_image_uri / TF_VAR_notification_email 環境変数で
+#  渡すためこのファイルは不要。ローカルから手動 apply する場合のみ使う)
+image_uri          = "727727663979.dkr.ecr.ap-northeast-1.amazonaws.com/llmops-rag-api:latest"
+notification_email = "you@example.com"
