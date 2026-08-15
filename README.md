@@ -19,6 +19,8 @@ AWS 公式ドキュメント (Bedrock ユーザーガイド) に対する日本�
 - **評価**: 検索は決定的指標 (recall@k/MRR)、生成は Ragas + Bedrock judge — [ADR 0007](docs/adr/0007-eval-with-ragas-subset.md)
 - **CI/CD**: GitHub OIDC (長期キーなし) + plan/apply/eval の 3 ロール — [ADR 0008](docs/adr/0008-github-oidc-iam-roles.md) / [ADR 0009](docs/adr/0009-cicd-quality-gate.md)
 
+IAM 権限の全体像 (誰が何をできるか) は [docs/iam-permissions.md](docs/iam-permissions.md) にまとめている。
+
 ## ローカル起動手順
 
 ```bash
