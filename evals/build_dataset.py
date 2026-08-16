@@ -43,7 +43,10 @@ GEN_SYSTEM_PROMPT = """\
 制約:
 1. 抜粋を読まなければ答えられない具体的な質問にすること。
 2. 「この節では」「上記の」など抜粋の文脈に依存する指示語を使わず、質問単体で意味が通ること。
-3. 参照回答は日本語で2〜4文とし、抜粋に書かれていない事実を付け加えないこと。
+3. 参照回答は、質問が直接聞いていることだけに答えること (質問のスコープを超えて抜粋の
+   内容を要約しないこと)。日本語で1〜2文、120字程度を目安に簡潔にまとめ、
+   抜粋に書かれていない事実を付け加えないこと。値を一意に特定する質問 (Model ID・数値・
+   API 名など) の場合は、その値を省略せずそのまま書くこと。
 4. 抜粋が目次の断片・表の残骸などで、意味のある文章になっていない場合は
    answerable を false にすること。
 
@@ -79,7 +82,14 @@ def _section_allowed(section: str | None) -> bool:
     return not any(s in lowered for s in _SECTION_DENYLIST_SUBSTRINGS)
 
 
-def _load_candidates(doc_key: str, min_chars: int, max_chars: int) -> list[Candidate]:
+def load_chunks(doc_key: str) -> list[Chunk]:
+    """`doc_key` の PDF を parse + chunk する (取り込み時と同じ経路)。
+
+    ⚠️ TOC ページの除外 (`_is_toc`) をここに含めておくこと。質問生成 (`_load_candidates`)
+    と参照解答の再生成 (`refresh_references.py`) の両方がこの関数を通ることで、
+    双方が同じ `content_hash` を計算することを保証する (evals/refresh_references.py は
+    既存 `gold_content_hash` をこの結果から引き直すため、経路がずれると解決できなくなる)。
+    """
     source = SOURCES[doc_key]
     pdf_path = DATA_DIR / f"{source.doc}.pdf"
     if not pdf_path.exists():
@@ -88,7 +98,12 @@ def _load_candidates(doc_key: str, min_chars: int, max_chars: int) -> list[Candi
             f"  uv run python -m app.ingestion.download_docs --doc {doc_key}"
         )
     pages = [p for p in extract_pages(pdf_path) if not _is_toc(p.section)]
-    chunks = chunk_pages(pages)
+    return chunk_pages(pages)
+
+
+def _load_candidates(doc_key: str, min_chars: int, max_chars: int) -> list[Candidate]:
+    source = SOURCES[doc_key]
+    chunks = load_chunks(doc_key)
     candidates = []
     for c in chunks:
         if not (min_chars <= len(c.content) <= max_chars):
