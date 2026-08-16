@@ -10,6 +10,11 @@ output "log_group_name" {
   value = aws_cloudwatch_log_group.api.name
 }
 
+output "api_domain_name" {
+  description = "CloudFront のオリジンに使う execute-api ホスト名 (パスなし)。Phase 4 フロント用"
+  value       = replace(aws_apigatewayv2_api.this.api_endpoint, "https://", "")
+}
+
 output "bedrock_model_arns" {
   description = <<-EOT
     Lambda 実行ロールが bedrock:InvokeModel を許可している ARN 一覧 (embed FM + chat 推論

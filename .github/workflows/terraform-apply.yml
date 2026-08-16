@@ -11,6 +11,7 @@ on:
     paths:
       - "app/**"
       - "infra/**"
+      - "web/**"
       - "Dockerfile"
       - "pyproject.toml"
       - "uv.lock"
@@ -101,6 +102,13 @@ jobs:
           TF_VAR_image_uri: ${{ needs.build-and-push.outputs.image_uri }}
           TF_VAR_notification_email: ${{ secrets.NOTIFICATION_EMAIL }}
         run: terraform apply -auto-approve -input=false -lock-timeout=5m
+
+      - name: CloudFront キャッシュ無効化 (デモフロントの静的ファイル更新を反映)
+        working-directory: infra/envs/dev
+        run: |
+          aws cloudfront create-invalidation \
+            --distribution-id "$(terraform output -raw cloudfront_distribution_id)" \
+            --paths "/*"
 
       - name: /healthz スモークテスト
         working-directory: infra/envs/dev

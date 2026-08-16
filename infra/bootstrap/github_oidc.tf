@@ -378,11 +378,15 @@ data "aws_iam_policy_document" "apply_stack_data" {
     resources = ["*"]
   }
   statement {
-    sid     = "DocsBucketManage"
+    # Phase 4: デモフロント用の web バケット (infra/modules/frontend) も同じ statement で
+    # まとめて管理する (sid を DocsBucketManage → S3BucketsManage に改名)。
+    sid     = "S3BucketsManage"
     actions = ["s3:*"]
     resources = [
       "arn:aws:s3:::${local.dev_prefix}-docs-*",
       "arn:aws:s3:::${local.dev_prefix}-docs-*/*",
+      "arn:aws:s3:::${local.dev_prefix}-web-*",
+      "arn:aws:s3:::${local.dev_prefix}-web-*/*",
     ]
   }
   statement {
@@ -429,4 +433,52 @@ resource "aws_iam_policy" "apply_stack_data" {
 resource "aws_iam_role_policy_attachment" "apply_stack_data" {
   role       = aws_iam_role.ci_tf_apply.name
   policy_arn = aws_iam_policy.apply_stack_data.arn
+}
+
+# デモフロント (Phase 4, infra/modules/frontend)。CloudFront はグローバルサービスで
+# ARN に region セグメントを持たない (arn:aws:cloudfront::${Account}:...)。
+# 独立したポリシーに分けているのは -compute/-data と同じく customer-managed policy の
+# 6,144 文字上限に余裕を持たせるため。
+data "aws_iam_policy_document" "apply_stack_frontend" {
+  statement {
+    # ⚠️ Create*/List*/Get* はサービス認可リファレンス上リソースタイプが定義されていない
+    #    (Resource types 欄が空) ため Resource="*" が必須。ディストリビューション ID は
+    #    作成時に自動採番されるため、命名規約によるリソーススコープもそもそも不可能。
+    sid = "CloudFrontCreateAndRead"
+    actions = [
+      "cloudfront:CreateDistribution",
+      "cloudfront:CreateOriginAccessControl",
+      "cloudfront:Get*",
+      "cloudfront:List*",
+    ]
+    resources = ["*"]
+  }
+  statement {
+    # 更新・削除系は distribution/origin-access-control リソースタイプが定義されており、
+    # region なしの ARN でスコープできる。
+    sid = "CloudFrontManage"
+    actions = [
+      "cloudfront:UpdateDistribution",
+      "cloudfront:DeleteDistribution",
+      "cloudfront:UpdateOriginAccessControl",
+      "cloudfront:DeleteOriginAccessControl",
+      "cloudfront:CreateInvalidation",
+      "cloudfront:TagResource",
+      "cloudfront:UntagResource",
+    ]
+    resources = [
+      "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/*",
+      "arn:aws:cloudfront::${data.aws_caller_identity.current.account_id}:origin-access-control/*",
+    ]
+  }
+}
+
+resource "aws_iam_policy" "apply_stack_frontend" {
+  name   = "llmops-rag-ci-tf-apply-frontend"
+  policy = data.aws_iam_policy_document.apply_stack_frontend.json
+}
+
+resource "aws_iam_role_policy_attachment" "apply_stack_frontend" {
+  role       = aws_iam_role.ci_tf_apply.name
+  policy_arn = aws_iam_policy.apply_stack_frontend.arn
 }

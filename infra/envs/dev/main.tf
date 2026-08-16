@@ -63,6 +63,15 @@ module "api" {
   throttling_burst_limit = var.throttling_burst_limit
 }
 
+module "frontend" {
+  source = "../../modules/frontend"
+
+  project         = var.project
+  env             = var.env
+  api_domain_name = module.api.api_domain_name
+  web_dir         = "${path.module}/../../../web"
+}
+
 module "observability" {
   source = "../../modules/observability"
 
