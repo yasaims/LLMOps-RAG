@@ -1,5 +1,8 @@
 # アーキテクチャ
 
+AWS 公式アイコンによる全体構成図: [aws-architecture.png](images/aws-architecture.png)
+(ソース: [aws-architecture.drawio](aws-architecture.drawio))
+
 ## Phase 1: ローカル構成
 
 ```mermaid
