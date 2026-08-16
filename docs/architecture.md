@@ -79,8 +79,7 @@ flowchart TB
   VPC 不要のため NAT/VPC エンドポイントの常時課金が発生しない
 - 取り込み (embed + PutVectors) はローカル/バッチから実行し、Lambda の実行時パスは
   検索専用 (最小権限の IAM)。[ADR 0006](adr/0006-lambda-container-http-api.md)
-- AWS Budgets (月次) + CloudWatch アラーム (Errors/Throttles) → SNS メール通知。
-  Budgets 超過時の自動停止 (計画書 §7.5) は Phase 4
+- AWS Budgets (月次) + CloudWatch アラーム (Errors/Throttles) → SNS メール通知
 - Terraform 構成: `infra/bootstrap` (tfstate用S3 + ECR, 一度きり) /
   `infra/modules/{vector-store,ingestion,api,observability}` / `infra/envs/dev`
 
@@ -139,6 +138,55 @@ flowchart LR
   eval ロールは Lambda 実行ロールと同一の最小権限 (ARN を Terraform 出力で共有) にしている
   ([ADR 0008](adr/0008-github-oidc-iam-roles.md))。各ロールの権限詳細・既知の落とし穴は
   [iam-permissions.md](iam-permissions.md) を参照
+
+## Phase 4: 監視ダッシュボード + デモ公開
+
+```mermaid
+flowchart TB
+    classDef user fill:#374151,stroke:#d1d5db,stroke-width:2px,color:#fff
+    classDef compute fill:#1e40af,stroke:#bfdbfe,stroke-width:2px,color:#fff
+    classDef storage fill:#047857,stroke:#a7f3d0,stroke-width:2px,color:#fff
+    classDef monitor fill:#c2410c,stroke:#fed7aa,stroke-width:2px,color:#fff
+
+    visitor((ブラウザ)):::user -->|"HTTPS 単一オリジン"| cf
+
+    subgraph demo["デモフロント (Phase 4)"]
+        direction LR
+        cf(["CloudFront\n1 distribution / 2 origins"]):::compute
+        cf -->|"GET / (静的ファイル)"| s3web[("S3 web バケット\n非公開, OAC 経由")]:::storage
+        cf -->|"POST /query, GET /healthz"| apigw(["API Gateway"]):::compute
+    end
+
+    apigw --> lambda(["Lambda"]):::compute
+    lambda -->|"JSON構造化ログ\nquery_completed"| logs[("CloudWatch Logs")]:::storage
+
+    subgraph dash["監視ダッシュボード (Phase 4)"]
+        direction LR
+        cw(["CloudWatch Dashboard\nLambda/APIGW/Bedrock メトリクス\n+ Logs Insights 集計"]):::monitor
+    end
+
+    lambda -.->|"メトリクス"| cw
+    apigw -.->|"メトリクス"| cw
+    logs -.->|"Logs Insights"| cw
+    logs -.-> alarms(["追加アラーム\napi-5xx / bedrock-throttles /\napi-request-spike (乱用検知)"]):::monitor
+    alarms --> sns(["SNS メール通知"]):::monitor
+
+    style demo fill:none,stroke:#3b82f6,stroke-width:2px,color:#3b82f6
+    style dash fill:none,stroke:#f97316,stroke-width:2px,color:#f97316
+```
+
+- **デモフロント**: CloudFront 1 ディストリビューションに S3 (静的 UI) と API Gateway の
+  2 オリジンをぶら下げ、ブラウザからは常に同一オリジンに見せることで CORS を発生させない
+  ([ADR 0011](adr/0011-demo-frontend-cloudfront.md))。S3 は Origin Access Control (OAC) 経由の
+  非公開のまま。公開に伴い API Gateway のスロットリングを 1 req/s に引き下げた
+- **監視ダッシュボード**: `app/logging_config.py` が出す JSON 構造化ログ (`latency_ms` /
+  トークン数 / `top_score`) を Logs Insights で集計し、Lambda / API Gateway / Bedrock の
+  既存メトリクスと 1 枚のダッシュボードにまとめた。ルート単位の詳細メトリクスや EMF による
+  カスタムメトリクス化は月次予算 (10 USD) を圧迫するため見送っている
+  ([ADR 0010](adr/0010-observability-dashboard.md))
+- 追加アラーム (API Gateway 5xx / Bedrock throttles / リクエスト急増) は SNS 経由でメール通知
+  するのみで、**自動遮断の仕組みはまだない**。計画書 §7.5 が想定する「Budgets 超過 → Lambda
+  concurrency=0 の自動停止」は未着手の残タスク
 
 ## モデル選定の要約
 
