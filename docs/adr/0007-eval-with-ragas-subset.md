@@ -70,8 +70,15 @@ PR ごとに実行される前提のため、実行時間・Bedrock 課金・依
   現存するバージョン) に引き下げることで解決した (`pyproject.toml` の `eval` グループ)。
   ragas か langchain-community 側でこの互換性が修正され次第、`langchain-aws` の
   バージョン上限を見直すこと
-- eval 1 回あたりの Bedrock 課金は概算 $1 未満 (25 問 × 回答生成 1 コール + judge
-  メトリクス 3 種 ≈ 数コール、Haiku 4.5 の単価 $1/$5 per MTok)。月次 Budgets
+- eval 1 回あたりの Bedrock 課金は **実測 $0.65 前後** (25 問、2026-08-15 に
+  `evals/measure_cost.py` で計測、内訳は回答生成 $0.09 + judge 3 指標 $0.56、
+  1 問あたり $0.026)。⚠️ 当初この行は机上計算の「概算 $1 未満」だったが、
+  コストボードの実額と乖離があったため実測に差し替えた
+  (`evals/run_eval.py` と同じ `_run_one`/`score_generation` を呼び出し、
+  botocore の `_make_api_call` を横取りしてトークン数を集計している。
+  単価は AWS Price List API に ap-northeast-1 の Anthropic/Cohere エントリが
+  無いため `aws.amazon.com/bedrock/pricing/` からの手動転記。CloudWatch
+  `AWS/Bedrock` の実績とも桁が一致することを確認済み)。月次 Budgets
   (10 USD) を圧迫しないよう、データセット規模と judge メトリクス数を絞っている
 - 評価は本番 S3 Vectors インデックスに対して read-only で実行するため
   (ADR 0008)、PR が `app/ingestion/chunk.py` / `parse.py` を変更しても

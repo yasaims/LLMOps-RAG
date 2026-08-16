@@ -1,0 +1,444 @@
+<mxfile host="Electron" version="29.6.1">
+  <diagram name="AWS-Architecture" id="llmops-rag-aws-architecture">
+    <mxGraphModel dx="1400" dy="1600" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="0" pageScale="1" pageWidth="1400" pageHeight="1800" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- Title block -->
+        <mxCell id="title-group" connectable="0" style="group;fontFamily=Helvetica;" value="" vertex="1" parent="1">
+          <mxGeometry height="83" width="1320" x="40" y="30" as="geometry" />
+        </mxCell>
+        <mxCell id="title-text" style="text;html=1;resizable=1;points=[];autosize=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=30;fontStyle=1;fontFamily=Helvetica;" value="LLMOps-RAG: AWS 構成" vertex="1" parent="title-group">
+          <mxGeometry height="42" width="900" as="geometry" />
+        </mxCell>
+        <mxCell id="subtitle-text" style="text;html=1;resizable=0;points=[];autosize=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=16;fontFamily=Helvetica;" value="Lambda + API Gateway + S3 Vectors のサーバーレス RAG API と、eval を品質ゲートに組み込んだ CI/CD（ap-northeast-1）" vertex="1" parent="title-group">
+          <mxGeometry height="25" width="1300" x="5" y="40" as="geometry" />
+        </mxCell>
+        <mxCell id="title-separator" style="line;strokeWidth=2;html=1;fontSize=14;strokeColor=#FF9900;fontFamily=Helvetica;" value="" vertex="1" parent="title-group">
+          <mxGeometry height="10" width="1310" x="5" y="70" as="geometry" />
+        </mxCell>
+
+        <!-- External actor: client -->
+        <mxCell id="client-box" style="fillColor=#f5f5f5;strokeColor=light-dark(#666666,#D4D4D4);rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#333333;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1;perimeterSpacing=0;" value="curl / ブラウザ" vertex="1" parent="1">
+          <mxGeometry x="80" y="215" width="140" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="client-icon" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#232F3D;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.users;fontFamily=Helvetica;" value="" vertex="1" parent="client-box">
+          <mxGeometry x="46" y="31" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- External actor: developer -->
+        <mxCell id="dev-box" style="fillColor=#f5f5f5;strokeColor=light-dark(#666666,#D4D4D4);rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#333333;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1;perimeterSpacing=0;" value="開発者ローカル" vertex="1" parent="1">
+          <mxGeometry x="80" y="455" width="140" height="110" as="geometry" />
+        </mxCell>
+        <mxCell id="dev-icon" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#232F3D;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=12;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.users;fontFamily=Helvetica;" value="" vertex="1" parent="dev-box">
+          <mxGeometry x="46" y="31" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- External actor: GitHub Actions (CI/CD) -->
+        <mxCell id="grp-github" style="fillColor=#EDE7F6;strokeColor=#8C4FFF;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#8C4FFF;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" value="External CI/CD" vertex="1" parent="1">
+          <mxGeometry x="80" y="660" width="160" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-github" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#8C4FFF;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.internet;fontFamily=Helvetica;shadow=1;" value="GitHub Actions&lt;div&gt;&lt;i&gt;OIDC・4 ワークフロー&lt;/i&gt;&lt;/div&gt;" vertex="1" parent="grp-github">
+          <mxGeometry x="56" y="30" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- AWS Cloud boundary -->
+        <mxCell id="aws-cloud" style="points=[[0,0],[0.25,0],[0.5,0],[0.75,0],[1,0],[1,0.25],[1,0.5],[1,0.75],[1,1],[0.75,1],[0.5,1],[0.25,1],[0,1],[0,0.75],[0,0.5],[0,0.25]];outlineConnect=0;gradientColor=none;html=1;whiteSpace=wrap;fontSize=12;fontStyle=0;shape=mxgraph.aws4.group;grIcon=mxgraph.aws4.group_aws_cloud;strokeColor=#232F3E;fillColor=light-dark(#232F3E0D,#232F3E0D);fillStyle=auto;verticalAlign=top;align=left;spacingLeft=30;fontColor=#232F3E;dashed=0;container=1;pointerEvents=0;collapsible=0;recursiveResize=0;fontFamily=Helvetica;" value="AWS クラウド (ap-northeast-1)" vertex="1" parent="1">
+          <mxGeometry x="260" y="150" width="1100" height="940" as="geometry" />
+        </mxCell>
+
+        <!-- Row 1 label -->
+        <mxCell id="row1-label" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;fontStyle=1;fontColor=#232F3E;fontFamily=Helvetica;" value="推論 API — 検索 (Retrieve) + 生成 (Generate)" vertex="1" parent="aws-cloud">
+          <mxGeometry x="40" y="35" width="600" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- API Gateway -->
+        <mxCell id="grp-apigw" style="fillColor=#EDE7F6;strokeColor=#8C4FFF;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#8C4FFF;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" value="Networking" vertex="1" parent="aws-cloud">
+          <mxGeometry x="40" y="60" width="120" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-apigw" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#8C4FFF;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.api_gateway;fontFamily=Helvetica;shadow=1;" value="Amazon API Gateway&lt;div&gt;&lt;i&gt;HTTP API, 2 req/s throttle&lt;/i&gt;&lt;/div&gt;" vertex="1" parent="grp-apigw">
+          <mxGeometry x="36" y="30" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- Lambda -->
+        <mxCell id="grp-lambda" style="fillColor=#FFF2E8;strokeColor=#ED7100;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#ED7100;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" value="Compute" vertex="1" parent="aws-cloud">
+          <mxGeometry x="340" y="60" width="120" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-lambda" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.lambda;fontFamily=Helvetica;shadow=1;" value="AWS Lambda&lt;div&gt;&lt;i&gt;コンテナイメージ, VPC外&lt;/i&gt;&lt;/div&gt;" vertex="1" parent="grp-lambda">
+          <mxGeometry x="36" y="30" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- Bedrock -->
+        <mxCell id="grp-bedrock" style="fillColor=#E0F2F1;strokeColor=#01A88D;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#01A88D;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" value="AI/ML" vertex="1" parent="aws-cloud">
+          <mxGeometry x="640" y="60" width="120" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-bedrock" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#01A88D;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.bedrock;fontFamily=Helvetica;shadow=1;" value="Amazon Bedrock&lt;div&gt;&lt;i&gt;Cohere Embed v4 / Claude Haiku 4.5&lt;/i&gt;&lt;/div&gt;" vertex="1" parent="grp-bedrock">
+          <mxGeometry x="36" y="30" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- S3 Vectors -->
+        <mxCell id="grp-s3vectors" style="fillColor=#E8F5E9;strokeColor=#3F8624;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#3F8624;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" value="Storage" vertex="1" parent="aws-cloud">
+          <mxGeometry x="940" y="60" width="120" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-s3vectors" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#3F8624;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fontFamily=Helvetica;shadow=1;" value="S3 Vectors&lt;div&gt;&lt;i&gt;index: chunks&lt;/i&gt;&lt;/div&gt;" vertex="1" parent="grp-s3vectors">
+          <mxGeometry x="36" y="30" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- Row 2 label -->
+        <mxCell id="row2-label" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;fontStyle=1;fontColor=#232F3E;fontFamily=Helvetica;" value="取り込み — ローカル/バッチ実行（Lambda の実行時パスとは分離）" vertex="1" parent="aws-cloud">
+          <mxGeometry x="40" y="275" width="700" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- S3 docs bucket -->
+        <mxCell id="grp-s3docs" style="fillColor=#E8F5E9;strokeColor=#3F8624;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#3F8624;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" value="Storage" vertex="1" parent="aws-cloud">
+          <mxGeometry x="40" y="300" width="120" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-s3docs" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#3F8624;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fontFamily=Helvetica;shadow=1;" value="Amazon S3&lt;div&gt;&lt;i&gt;docs バケット（原文PDF）&lt;/i&gt;&lt;/div&gt;" vertex="1" parent="grp-s3docs">
+          <mxGeometry x="36" y="30" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- Row CI/CD label (NEW) -->
+        <mxCell id="cicd-label" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;fontStyle=1;fontColor=#232F3E;fontFamily=Helvetica;" value="CI/CD — GitHub Actions からのビルド・デプロイ・評価アクセス" vertex="1" parent="aws-cloud">
+          <mxGeometry x="340" y="515" width="700" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- ECR (NEW) -->
+        <mxCell id="grp-ecr" style="fillColor=#FFF2E8;strokeColor=#ED7100;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#ED7100;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" value="Containers" vertex="1" parent="aws-cloud">
+          <mxGeometry x="340" y="540" width="120" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-ecr" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#ED7100;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.ecr;fontFamily=Helvetica;shadow=1;" value="Amazon ECR&lt;div&gt;&lt;i&gt;Lambda コンテナイメージ&lt;/i&gt;&lt;/div&gt;" vertex="1" parent="grp-ecr">
+          <mxGeometry x="36" y="30" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- tfstate S3 (NEW) -->
+        <mxCell id="grp-tfstate" style="fillColor=#E8F5E9;strokeColor=#3F8624;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#3F8624;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" value="Storage" vertex="1" parent="aws-cloud">
+          <mxGeometry x="640" y="540" width="120" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-tfstate" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#3F8624;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.s3;fontFamily=Helvetica;shadow=1;" value="Amazon S3&lt;div&gt;&lt;i&gt;tfstate バケット&lt;/i&gt;&lt;/div&gt;" vertex="1" parent="grp-tfstate">
+          <mxGeometry x="36" y="30" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- Row 3 label (cost management, pushed down) -->
+        <mxCell id="row3-label" style="text;html=1;whiteSpace=wrap;strokeColor=none;fillColor=none;align=left;verticalAlign=middle;fontSize=12;fontStyle=1;fontColor=#232F3E;fontFamily=Helvetica;" value="コスト管理・異常検知" vertex="1" parent="aws-cloud">
+          <mxGeometry x="340" y="755" width="400" height="20" as="geometry" />
+        </mxCell>
+
+        <!-- CloudWatch Alarm -->
+        <mxCell id="grp-cwalarm" style="fillColor=#F5F5F5;strokeColor=#666666;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#666666;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" value="Monitoring" vertex="1" parent="aws-cloud">
+          <mxGeometry x="340" y="780" width="120" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-cwalarm" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#666666;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudwatch_2;fontFamily=Helvetica;shadow=1;" value="CloudWatch アラーム&lt;div&gt;&lt;i&gt;Lambda Errors/Throttles&lt;/i&gt;&lt;/div&gt;" vertex="1" parent="grp-cwalarm">
+          <mxGeometry x="36" y="30" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- SNS -->
+        <mxCell id="grp-sns" style="fillColor=#FCE4EC;strokeColor=#E7157B;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#E7157B;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" value="App Integration" vertex="1" parent="aws-cloud">
+          <mxGeometry x="640" y="780" width="120" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-sns" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#E7157B;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.sns;fontFamily=Helvetica;shadow=1;" value="Amazon SNS&lt;div&gt;&lt;i&gt;メール通知&lt;/i&gt;&lt;/div&gt;" vertex="1" parent="grp-sns">
+          <mxGeometry x="36" y="30" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- Budgets -->
+        <mxCell id="grp-budgets" style="fillColor=#F5F5F5;strokeColor=#666666;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#666666;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" value="Cost Management" vertex="1" parent="aws-cloud">
+          <mxGeometry x="940" y="780" width="120" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-budgets" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#666666;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.budgets_2;fontFamily=Helvetica;shadow=1;" value="AWS Budgets&lt;div&gt;&lt;i&gt;月次予算 80% / 100%&lt;/i&gt;&lt;/div&gt;" vertex="1" parent="grp-budgets">
+          <mxGeometry x="36" y="30" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- Auxiliary Services (CloudWatch Logs + IAM) -->
+        <mxCell id="aux-box" style="rounded=0;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#666666;dashed=1;verticalAlign=top;fontSize=11;fontStyle=2;fontColor=#666666;fontFamily=Helvetica;container=0;" value="Auxiliary Services" vertex="1" parent="aws-cloud">
+          <mxGeometry x="20" y="500" width="160" height="310" as="geometry" />
+        </mxCell>
+        <mxCell id="grp-cwlogs" style="fillColor=#F5F5F5;strokeColor=#666666;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#666666;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" value="Monitoring" vertex="1" parent="aws-cloud">
+          <mxGeometry x="40" y="530" width="120" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-cwlogs" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#666666;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.cloudwatch_2;fontFamily=Helvetica;shadow=1;" value="CloudWatch Logs&lt;div&gt;&lt;i&gt;Lambda実行ログ / APIGWアクセスログ&lt;/i&gt;&lt;/div&gt;" vertex="1" parent="grp-cwlogs">
+          <mxGeometry x="36" y="30" width="48" height="48" as="geometry" />
+        </mxCell>
+        <mxCell id="grp-iam" style="fillColor=#FFEBEE;strokeColor=#DD344C;rounded=1;whiteSpace=wrap;html=1;verticalAlign=top;fontStyle=1;fontSize=12;fontColor=#DD344C;fontFamily=Helvetica;container=1;collapsible=0;shadow=1;strokeWidth=1.5;" value="Security" vertex="1" parent="aws-cloud">
+          <mxGeometry x="40" y="670" width="120" height="120" as="geometry" />
+        </mxCell>
+        <mxCell id="svc-iam" style="sketch=0;points=[[0,0,0],[0.25,0,0],[0.5,0,0],[0.75,0,0],[1,0,0],[0,1,0],[0.25,1,0],[0.5,1,0],[0.75,1,0],[1,1,0],[0,0.25,0],[0,0.5,0],[0,0.75,0],[1,0.25,0],[1,0.5,0],[1,0.75,0]];outlineConnect=0;fontColor=#232F3E;fillColor=#DD344C;strokeColor=#ffffff;dashed=0;verticalLabelPosition=bottom;verticalAlign=top;align=center;html=1;fontSize=10;fontStyle=0;aspect=fixed;shape=mxgraph.aws4.resourceIcon;resIcon=mxgraph.aws4.identity_and_access_management;fontFamily=Helvetica;shadow=1;" value="AWS IAM&lt;div&gt;&lt;i&gt;OIDC: plan / apply / eval ロール&lt;/i&gt;&lt;/div&gt;" vertex="1" parent="grp-iam">
+          <mxGeometry x="36" y="30" width="48" height="48" as="geometry" />
+        </mxCell>
+
+        <!-- Edge 1: client <-> API Gateway -->
+        <mxCell id="edge-1" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;startArrow=block;startFill=1;endFill=1;elbow=vertical;strokeColor=#545B64;rounded=0;fontFamily=Helvetica;jettySize=auto;orthogonalLoop=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="client-box" target="svc-apigw">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-1-label" value="POST /query, GET /healthz" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontFamily=Helvetica;fontSize=11;" connectable="0" vertex="1" parent="edge-1">
+          <mxGeometry relative="1" x="0" y="-2" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="step-1" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;align=center;verticalAlign=middle;labelBackgroundColor=none;" value="1" vertex="1" parent="1">
+          <mxGeometry x="226" y="200" width="28" height="28" as="geometry" />
+        </mxCell>
+
+        <!-- Edge 2: API Gateway -> Lambda -->
+        <mxCell id="edge-2" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;startArrow=none;endFill=1;elbow=vertical;strokeColor=#545B64;rounded=0;fontFamily=Helvetica;jettySize=auto;orthogonalLoop=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="svc-apigw" target="svc-lambda">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-2-label" value="AWS_PROXY 統合" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontFamily=Helvetica;fontSize=11;" connectable="0" vertex="1" parent="edge-2">
+          <mxGeometry relative="1" x="0" y="-1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="step-2" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;align=center;verticalAlign=middle;labelBackgroundColor=none;" value="2" vertex="1" parent="1">
+          <mxGeometry x="496" y="222" width="28" height="28" as="geometry" />
+        </mxCell>
+
+        <!-- Edge 3: Lambda -> Bedrock -->
+        <mxCell id="edge-3" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;startArrow=none;endFill=1;elbow=vertical;strokeColor=#545B64;rounded=0;fontFamily=Helvetica;jettySize=auto;orthogonalLoop=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="svc-lambda" target="svc-bedrock">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-3-label" value="InvokeModel： Cohere Embed v4 /&#10;Claude Haiku 4.5 (jp. 推論プロファイル)" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontFamily=Helvetica;fontSize=11;" connectable="0" vertex="1" parent="edge-3">
+          <mxGeometry relative="1" x="0" y="-1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="step-3" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;align=center;verticalAlign=middle;labelBackgroundColor=none;" value="3" vertex="1" parent="1">
+          <mxGeometry x="796" y="222" width="28" height="28" as="geometry" />
+        </mxCell>
+
+        <!-- Edge 4: Lambda -> S3 Vectors (route under row 1) -->
+        <mxCell id="edge-4" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;startArrow=none;endFill=1;elbow=vertical;strokeColor=#545B64;rounded=0;fontFamily=Helvetica;jettySize=auto;orthogonalLoop=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="svc-lambda" target="svc-s3vectors">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="660" y="360" />
+              <mxPoint x="1260" y="360" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-4-label" value="QueryVectors / GetVectors / GetIndex（top-k 検索）" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontFamily=Helvetica;fontSize=11;" connectable="0" vertex="1" parent="edge-4">
+          <mxGeometry relative="1" x="0" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="step-4" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;align=center;verticalAlign=middle;labelBackgroundColor=none;" value="4" vertex="1" parent="1">
+          <mxGeometry x="646" y="345" width="28" height="28" as="geometry" />
+        </mxCell>
+
+        <!-- Edge 5: developer -> S3 docs bucket -->
+        <mxCell id="edge-5" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;startArrow=none;endFill=1;elbow=vertical;strokeColor=#545B64;rounded=0;fontFamily=Helvetica;jettySize=auto;orthogonalLoop=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="dev-box" target="svc-s3docs">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-5-label" value="upload_docs.py（原文PDF）" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontFamily=Helvetica;fontSize=11;" connectable="0" vertex="1" parent="edge-5">
+          <mxGeometry relative="1" x="-0.2" y="0" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="step-5" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;align=center;verticalAlign=middle;labelBackgroundColor=none;" value="5" vertex="1" parent="1">
+          <mxGeometry x="226" y="440" width="28" height="28" as="geometry" />
+        </mxCell>
+
+        <!-- Edge 6: developer -> S3 Vectors (route around right side) -->
+        <mxCell id="edge-6" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;startArrow=none;endFill=1;elbow=vertical;strokeColor=#545B64;rounded=0;fontFamily=Helvetica;jettySize=auto;orthogonalLoop=1;exitX=0.5;exitY=1;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="dev-box" target="svc-s3vectors">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="150" y="585" />
+              <mxPoint x="1340" y="585" />
+              <mxPoint x="1340" y="264" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-6-label" value="ingest.py / migrate_to_s3vectors.py（PutVectors）" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontFamily=Helvetica;fontSize=11;" connectable="0" vertex="1" parent="edge-6">
+          <mxGeometry relative="1" x="0" y="-1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="step-6" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;align=center;verticalAlign=middle;labelBackgroundColor=none;" value="6" vertex="1" parent="1">
+          <mxGeometry x="136" y="555" width="28" height="28" as="geometry" />
+        </mxCell>
+
+        <!-- Edge 7a: GitHub Actions -> Bedrock (eval.yml judge/embed) -->
+        <mxCell id="edge-7a" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;startArrow=none;endFill=1;elbow=vertical;strokeColor=#545B64;rounded=0;fontFamily=Helvetica;jettySize=auto;orthogonalLoop=1;exitX=0.2;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="grp-github" target="svc-bedrock">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="112" y="380" />
+              <mxPoint x="960" y="380" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-7a-label" value="Converse: judge / embed" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontFamily=Helvetica;fontSize=11;" connectable="0" vertex="1" parent="edge-7a">
+          <mxGeometry relative="1" x="-0.3" y="-1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+
+        <!-- Edge 7b: GitHub Actions -> S3 Vectors (eval.yml read-only retrieval) -->
+        <mxCell id="edge-7b" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;startArrow=none;endFill=1;elbow=vertical;strokeColor=#545B64;rounded=0;fontFamily=Helvetica;jettySize=auto;orthogonalLoop=1;exitX=0.4;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" parent="1" source="grp-github" target="svc-s3vectors">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="144" y="400" />
+              <mxPoint x="1260" y="400" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-7b-label" value="QueryVectors（本番, read-only）" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontFamily=Helvetica;fontSize=11;" connectable="0" vertex="1" parent="edge-7b">
+          <mxGeometry relative="1" x="0.3" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="step-7" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;align=center;verticalAlign=middle;labelBackgroundColor=none;" value="7" vertex="1" parent="1">
+          <mxGeometry x="86" y="613" width="28" height="28" as="geometry" />
+        </mxCell>
+
+        <!-- Edge 8: GitHub Actions -> ECR (build & push) -->
+        <mxCell id="edge-8" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;startArrow=none;endFill=1;elbow=vertical;strokeColor=#545B64;rounded=0;fontFamily=Helvetica;jettySize=auto;orthogonalLoop=1;exitX=0.6;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="grp-github" target="svc-ecr">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="176" y="610" />
+              <mxPoint x="660" y="610" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-8-label" value="apply ロール: docker build &amp; push" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontFamily=Helvetica;fontSize=11;" connectable="0" vertex="1" parent="edge-8">
+          <mxGeometry relative="1" x="-0.2" y="-1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="step-8" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;align=center;verticalAlign=middle;labelBackgroundColor=none;" value="8" vertex="1" parent="1">
+          <mxGeometry x="150" y="613" width="28" height="28" as="geometry" />
+        </mxCell>
+
+        <!-- Edge 9: GitHub Actions -> tfstate S3 (terraform apply) -->
+        <mxCell id="edge-9" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;startArrow=none;endFill=1;elbow=vertical;strokeColor=#545B64;rounded=0;fontFamily=Helvetica;jettySize=auto;orthogonalLoop=1;exitX=0.8;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=0;entryDx=0;entryDy=0;" edge="1" parent="1" source="grp-github" target="svc-tfstate">
+          <mxGeometry relative="1" as="geometry">
+            <Array as="points">
+              <mxPoint x="208" y="610" />
+              <mxPoint x="960" y="610" />
+            </Array>
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="edge-9-label" value="apply ロール: terraform apply → /healthz" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontFamily=Helvetica;fontSize=11;" connectable="0" vertex="1" parent="edge-9">
+          <mxGeometry relative="1" x="0.2" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="step-9" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;align=center;verticalAlign=middle;labelBackgroundColor=none;" value="9" vertex="1" parent="1">
+          <mxGeometry x="214" y="613" width="28" height="28" as="geometry" />
+        </mxCell>
+
+        <!-- Edge 10: CloudWatch Alarm -> SNS -->
+        <mxCell id="edge-10" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;startArrow=none;endFill=1;elbow=vertical;strokeColor=#545B64;rounded=0;fontFamily=Helvetica;jettySize=auto;orthogonalLoop=1;exitX=1;exitY=0.5;exitDx=0;exitDy=0;entryX=0;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="svc-cwalarm" target="svc-sns">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-10-label" value="Errors/Throttles &gt; 5件（5分）" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontFamily=Helvetica;fontSize=11;" connectable="0" vertex="1" parent="edge-10">
+          <mxGeometry relative="1" x="0" y="-1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="step-10" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;align=center;verticalAlign=middle;labelBackgroundColor=none;" value="10" vertex="1" parent="1">
+          <mxGeometry x="724" y="976" width="28" height="28" as="geometry" />
+        </mxCell>
+
+        <!-- Edge 11: Budgets -> SNS -->
+        <mxCell id="edge-11" style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;startArrow=none;endFill=1;elbow=vertical;strokeColor=#545B64;rounded=0;fontFamily=Helvetica;jettySize=auto;orthogonalLoop=1;exitX=0;exitY=0.5;exitDx=0;exitDy=0;entryX=1;entryY=0.5;entryDx=0;entryDy=0;" edge="1" parent="1" source="svc-budgets" target="svc-sns">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="edge-11-label" value="月次予算 80% / 100% 超過" style="edgeLabel;html=1;align=center;verticalAlign=middle;resizable=0;points=[];labelBackgroundColor=none;fontFamily=Helvetica;fontSize=11;" connectable="0" vertex="1" parent="edge-11">
+          <mxGeometry relative="1" x="0" y="1" as="geometry">
+            <mxPoint as="offset" />
+          </mxGeometry>
+        </mxCell>
+        <mxCell id="step-11" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=16;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;align=center;verticalAlign=middle;labelBackgroundColor=none;" value="11" vertex="1" parent="1">
+          <mxGeometry x="1024" y="976" width="28" height="28" as="geometry" />
+        </mxCell>
+
+        <!-- Legend (below diagram, 2-column) -->
+        <mxCell id="legend-bg" style="verticalLabelPosition=bottom;verticalAlign=top;html=1;shape=mxgraph.basic.rect;fillColor2=none;strokeWidth=1;size=20;indent=5;fillColor=light-dark(#EDF3FF,#305363);strokeColor=#6c8ebf;" value="" vertex="1" parent="1">
+          <mxGeometry height="670" width="1360" x="20" y="1100" as="geometry" />
+        </mxCell>
+        <mxCell id="legend-header" style="text;html=1;align=left;verticalAlign=middle;strokeColor=none;fillColor=none;fontSize=16;fontStyle=1;fontColor=#232F3E;fontFamily=Helvetica;" value="ステップ解説" vertex="1" parent="1">
+          <mxGeometry height="24" width="300" x="40" y="1112" as="geometry" />
+        </mxCell>
+
+        <mxCell id="step-1-badge-legend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;" value="1" vertex="1" parent="1">
+          <mxGeometry height="38" width="40" x="40" y="1150" as="geometry" />
+        </mxCell>
+        <mxCell id="step-1-desc-legend" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;" value="&lt;div&gt;&lt;b&gt;クライアントリクエスト&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;&lt;b&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;-&lt;/font&gt; &lt;/b&gt;日本語質問を API Gateway (HTTP API, 2 req/s スロットリング) に POST /query で送信し、出典付き回答を受け取る&lt;/span&gt;&lt;/div&gt;" vertex="1" parent="1">
+          <mxGeometry height="80" width="588" x="92" y="1150" as="geometry" />
+        </mxCell>
+
+        <mxCell id="step-2-badge-legend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;" value="2" vertex="1" parent="1">
+          <mxGeometry height="38" width="40" x="40" y="1240" as="geometry" />
+        </mxCell>
+        <mxCell id="step-2-desc-legend" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;" value="&lt;div&gt;&lt;b&gt;Lambda 呼び出し&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;&lt;b&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;-&lt;/font&gt; &lt;/b&gt;API Gateway が AWS_PROXY 統合で Lambda（コンテナイメージ, VPC外）を起動&lt;/span&gt;&lt;/div&gt;" vertex="1" parent="1">
+          <mxGeometry height="80" width="588" x="92" y="1240" as="geometry" />
+        </mxCell>
+
+        <mxCell id="step-3-badge-legend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;" value="3" vertex="1" parent="1">
+          <mxGeometry height="38" width="40" x="40" y="1330" as="geometry" />
+        </mxCell>
+        <mxCell id="step-3-desc-legend" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;" value="&lt;div&gt;&lt;b&gt;Bedrock 呼び出し&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;&lt;b&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;-&lt;/font&gt; &lt;/b&gt;質問を Cohere Embed v4 (search_query) で埋め込み、回答は jp. 推論プロファイル経由で Claude Haiku 4.5 が生成&lt;/span&gt;&lt;/div&gt;" vertex="1" parent="1">
+          <mxGeometry height="80" width="588" x="92" y="1330" as="geometry" />
+        </mxCell>
+
+        <mxCell id="step-4-badge-legend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;" value="4" vertex="1" parent="1">
+          <mxGeometry height="38" width="40" x="40" y="1420" as="geometry" />
+        </mxCell>
+        <mxCell id="step-4-desc-legend" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;" value="&lt;div&gt;&lt;b&gt;ベクトル検索&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;&lt;b&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;-&lt;/font&gt; &lt;/b&gt;Lambda が S3 Vectors（index: chunks）を QueryVectors/GetVectors/GetIndex で検索専用の最小権限で問い合わせ top-k を取得&lt;/span&gt;&lt;/div&gt;" vertex="1" parent="1">
+          <mxGeometry height="80" width="588" x="92" y="1420" as="geometry" />
+        </mxCell>
+
+        <mxCell id="step-5-badge-legend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;" value="5" vertex="1" parent="1">
+          <mxGeometry height="38" width="40" x="40" y="1510" as="geometry" />
+        </mxCell>
+        <mxCell id="step-5-desc-legend" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;" value="&lt;div&gt;&lt;b&gt;原文PDF保管&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;&lt;b&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;-&lt;/font&gt; &lt;/b&gt;開発者ローカルから upload_docs.py で取り込み元 PDF を S3 (docs バケット) にアップロード（出典・再現性の証跡）&lt;/span&gt;&lt;/div&gt;" vertex="1" parent="1">
+          <mxGeometry height="80" width="588" x="92" y="1510" as="geometry" />
+        </mxCell>
+
+        <mxCell id="step-6-badge-legend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;" value="6" vertex="1" parent="1">
+          <mxGeometry height="38" width="40" x="40" y="1600" as="geometry" />
+        </mxCell>
+        <mxCell id="step-6-desc-legend" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;" value="&lt;div&gt;&lt;b&gt;取り込み（embed + PutVectors）&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;&lt;b&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;-&lt;/font&gt; &lt;/b&gt;ingest.py / migrate_to_s3vectors.py をローカル資格情報で実行し、S3 Vectors に直接 PutVectors（Lambda の実行時パスは検索専用）&lt;/span&gt;&lt;/div&gt;" vertex="1" parent="1">
+          <mxGeometry height="80" width="588" x="92" y="1600" as="geometry" />
+        </mxCell>
+
+        <mxCell id="step-7-badge-legend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;" value="7" vertex="1" parent="1">
+          <mxGeometry height="38" width="40" x="720" y="1150" as="geometry" />
+        </mxCell>
+        <mxCell id="step-7-desc-legend" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;" value="&lt;div&gt;&lt;b&gt;CI 品質ゲート（eval.yml）&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;&lt;b&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;-&lt;/font&gt; &lt;/b&gt;PR ごとに eval ロール (GitHub OIDC, 長期キーなし) で本番 Bedrock (Haiku 4.5 judge) と S3 Vectors (read-only) に接続し RAG 品質を評価。baseline.json からのリグレッションがあれば必須チェックとして失敗させる&lt;/span&gt;&lt;/div&gt;" vertex="1" parent="1">
+          <mxGeometry height="80" width="588" x="772" y="1150" as="geometry" />
+        </mxCell>
+
+        <mxCell id="step-8-badge-legend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;" value="8" vertex="1" parent="1">
+          <mxGeometry height="38" width="40" x="720" y="1240" as="geometry" />
+        </mxCell>
+        <mxCell id="step-8-desc-legend" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;" value="&lt;div&gt;&lt;b&gt;イメージ build &amp; push（terraform-apply.yml）&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;&lt;b&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;-&lt;/font&gt; &lt;/b&gt;main マージ時、apply ロール (OIDC) で Lambda 用コンテナイメージを docker build して ECR に push&lt;/span&gt;&lt;/div&gt;" vertex="1" parent="1">
+          <mxGeometry height="80" width="588" x="772" y="1240" as="geometry" />
+        </mxCell>
+
+        <mxCell id="step-9-badge-legend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;" value="9" vertex="1" parent="1">
+          <mxGeometry height="38" width="40" x="720" y="1330" as="geometry" />
+        </mxCell>
+        <mxCell id="step-9-desc-legend" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;" value="&lt;div&gt;&lt;b&gt;Terraform apply とスモークテスト&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;&lt;b&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;-&lt;/font&gt; &lt;/b&gt;apply ロール (OIDC) が tfstate (S3) を使って terraform apply → 新しい image_uri を Lambda に反映 → /healthz スモークテスト&lt;/span&gt;&lt;/div&gt;" vertex="1" parent="1">
+          <mxGeometry height="80" width="588" x="772" y="1330" as="geometry" />
+        </mxCell>
+
+        <mxCell id="step-10-badge-legend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;" value="10" vertex="1" parent="1">
+          <mxGeometry height="38" width="40" x="720" y="1420" as="geometry" />
+        </mxCell>
+        <mxCell id="step-10-desc-legend" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;" value="&lt;div&gt;&lt;b&gt;Lambda 障害アラート&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;&lt;b&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;-&lt;/font&gt; &lt;/b&gt;CloudWatch アラームが Errors/Throttles が5分間で5件超を検知したら SNS に発火&lt;/span&gt;&lt;/div&gt;" vertex="1" parent="1">
+          <mxGeometry height="80" width="588" x="772" y="1420" as="geometry" />
+        </mxCell>
+
+        <mxCell id="step-11-badge-legend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#007CBD;strokeColor=default;fontColor=#FFFFFF;fontStyle=1;fontSize=22;labelBackgroundColor=none;fontFamily=Helvetica;shadow=1;glass=0;strokeWidth=2;" value="11" vertex="1" parent="1">
+          <mxGeometry height="38" width="40" x="720" y="1510" as="geometry" />
+        </mxCell>
+        <mxCell id="step-11-desc-legend" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=14;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;" value="&lt;div&gt;&lt;b&gt;予算超過アラート&lt;/b&gt;&lt;/div&gt;&lt;div&gt;&lt;span style=&quot;color: light-dark(rgb(0,0,0), rgb(255,255,255));&quot;&gt;&lt;b&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;-&lt;/font&gt; &lt;/b&gt;AWS Budgets が月次予算の 80% / 100% 超過を検知したら SNS に発火しメール通知&lt;/span&gt;&lt;/div&gt;" vertex="1" parent="1">
+          <mxGeometry height="80" width="588" x="772" y="1510" as="geometry" />
+        </mxCell>
+
+        <mxCell id="legend-note" style="text;html=1;align=left;verticalAlign=top;spacingTop=-4;fontSize=12;fontStyle=2;labelBackgroundColor=none;whiteSpace=wrap;fontFamily=Helvetica;fontColor=#666666;" value="※ CloudWatch Logs (Lambda実行ログ / API Gatewayアクセスログ) と IAM (GitHub OIDC provider / plan・apply・eval の3ロール) は Auxiliary Services として構成情報のみを示し、上記ステップには含めていません。" vertex="1" parent="1">
+          <mxGeometry height="50" width="1300" x="40" y="1700" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

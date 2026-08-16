@@ -1,21 +1,39 @@
 # アーキテクチャ
 
+AWS 公式アイコンによる全体構成図: [aws-architecture.png](images/aws-architecture.png)
+(ソース: [aws-architecture.drawio](aws-architecture.drawio))
+
 ## Phase 1: ローカル構成
 
 ```mermaid
-flowchart LR
-    subgraph local["ローカル環境"]
-        dl["download_docs.py"] -->|PDF 66MB| raw["data/raw/*.pdf\n(gitignore)"]
-        raw --> ingest["ingest.py\nparse -> chunk -> embed"]
-        ingest -->|"Cohere Embed v4\ninput_type=search_document"| bedrock1[("Amazon Bedrock\nap-northeast-1")]
-        ingest --> db[("pgvector\n(docker compose)")]
+flowchart TB
+    classDef process fill:#1e40af,stroke:#bfdbfe,stroke-width:2px,color:#fff
+    classDef storage fill:#374151,stroke:#d1d5db,stroke-width:2px,color:#fff
+    classDef external fill:#5b21b6,stroke:#ddd6fe,stroke-width:2px,color:#fff
+    classDef user fill:#c2410c,stroke:#fed7aa,stroke-width:2px,color:#fff
 
-        client["curl / ブラウザ"] -->|"POST /query\n(日本語質問)"| api["FastAPI\n/query, /healthz"]
-        api -->|"Cohere Embed v4\ninput_type=search_query"| bedrock1
-        api -->|"top-k コサイン類似検索"| db
-        api -->|"Claude Haiku 4.5\n(jp. 推論プロファイル)\nConverse API"| bedrock2[("Amazon Bedrock\nap-northeast-1")]
-        api -->|"出典付き日本語回答"| client
+    subgraph ingestion["取り込みパイプライン"]
+        direction LR
+        dl(["download_docs.py"]):::process --> raw[("data/raw/*.pdf<br/>gitignore")]:::storage --> ingestproc(["ingest.py<br/>parse → chunk → embed"]):::process
     end
+
+    subgraph inference["推論パイプライン"]
+        direction LR
+        client((curl / ブラウザ)):::user -->|"① POST /query<br/>(日本語質問)"| api(["FastAPI<br/>/query, /healthz"]):::process
+        api -->|"④ 出典付き日本語回答"| client
+    end
+
+    bedrock1[("Amazon Bedrock<br/>ap-northeast-1")]:::external
+    db[("pgvector<br/>docker compose")]:::storage
+    bedrock2[("Amazon Bedrock<br/>ap-northeast-1")]:::external
+
+    ingestproc -->|"Cohere Embed v4<br/>search_document"| bedrock1
+    ingestproc -->|"upsert"| db
+    api -->|"② top-k コサイン類似検索"| db
+    api -->|"② Cohere Embed v4<br/>search_query<br/>③ Claude Haiku 4.5<br/>jp. 推論プロファイル"| bedrock2
+
+    style ingestion fill:none,stroke:#3b82f6,stroke-width:2px,color:#3b82f6
+    style inference fill:none,stroke:#f97316,stroke-width:2px,color:#f97316
 ```
 
 - **取り込み**: `download_docs.py` → `ingest.py` (parse → chunk → embed → upsert)
@@ -25,18 +43,35 @@ flowchart LR
 ## Phase 2: AWS 最小構成 (Terraform, デプロイ済み)
 
 ```mermaid
-flowchart LR
-    client["curl / ブラウザ"] -->|"HTTPS\nPOST /query, GET /healthz"| apigw["API Gateway (HTTP API)\nスロットリング 2 req/s"]
-    apigw --> lambda["Lambda\n(コンテナイメージ, VPC外)"]
-    lambda -->|"Cohere Embed v4 / Claude Haiku 4.5"| bedrock[("Amazon Bedrock\nap-northeast-1")]
-    lambda -->|"QueryVectors / GetVectors"| s3v[("S3 Vectors\nindex: chunks")]
-    lambda -->|"JSON構造化ログ"| logs[("CloudWatch Logs")]
+flowchart TB
+    classDef user fill:#374151,stroke:#d1d5db,stroke-width:2px,color:#fff
+    classDef compute fill:#1e40af,stroke:#bfdbfe,stroke-width:2px,color:#fff
+    classDef storage fill:#047857,stroke:#a7f3d0,stroke-width:2px,color:#fff
+    classDef external fill:#5b21b6,stroke:#ddd6fe,stroke-width:2px,color:#fff
+    classDef monitor fill:#c2410c,stroke:#fed7aa,stroke-width:2px,color:#fff
 
-    dev["開発者ローカル"] -->|"upload_docs.py"| docs["S3 (docs バケット)\n取り込み元PDF保管"]
-    dev -->|"ingest.py / migrate_to_s3vectors.py\n(PutVectors, ローカル資格情報)"| s3v
+    client((curl / ブラウザ)):::user -->|"HTTPS<br/>POST /query, GET /healthz"| apigw
 
-    budgets["AWS Budgets\n月次予算アラート"] -->|"80% / 100%超過"| sns["SNS (メール通知)"]
-    cwalarm["CloudWatch アラーム\nLambda Errors/Throttles"] --> sns
+    subgraph request["リクエストパス"]
+        direction LR
+        apigw(["API Gateway HTTP API<br/>スロットリング 2 req/s"]):::compute --> lambda(["Lambda<br/>コンテナイメージ, VPC外"]):::compute
+    end
+
+    lambda -->|"Cohere Embed v4 /<br/>Claude Haiku 4.5"| bedrock[("Amazon Bedrock<br/>ap-northeast-1")]:::external
+    lambda -->|"QueryVectors / GetVectors"| s3v[("S3 Vectors<br/>index: chunks")]:::storage
+    lambda -->|"JSON構造化ログ"| logs[("CloudWatch Logs")]:::storage
+
+    dev((開発者ローカル)):::user -->|"upload_docs.py"| docs[("S3 docs バケット<br/>取り込み元PDF保管")]:::storage
+    dev -->|"ingest.py /<br/>migrate_to_s3vectors.py"| s3v
+
+    subgraph monitoring["モニタリング"]
+        direction LR
+        budgets(["AWS Budgets<br/>月次予算アラート"]):::monitor -->|"80%/100%超過"| sns(["SNS<br/>メール通知"]):::monitor
+        cwalarm(["CloudWatch アラーム<br/>Errors/Throttles"]):::monitor --> sns
+    end
+
+    style request fill:none,stroke:#3b82f6,stroke-width:2px,color:#3b82f6
+    style monitoring fill:none,stroke:#f97316,stroke-width:2px,color:#f97316
 ```
 
 - Lambda (コンテナイメージ, x86_64) + API Gateway HTTP API でサーバーレス化 (アイドル時ゼロ円)
@@ -53,29 +88,43 @@ flowchart LR
 
 ```mermaid
 flowchart LR
+    classDef trigger fill:#374151,stroke:#d1d5db,stroke-width:2px,color:#fff
+    classDef workflow fill:#1e40af,stroke:#bfdbfe,stroke-width:2px,color:#fff
+    classDef aws fill:#5b21b6,stroke:#ddd6fe,stroke-width:2px,color:#fff
+    classDef output fill:#047857,stroke:#a7f3d0,stroke-width:2px,color:#fff
+    classDef auth fill:#c2410c,stroke:#fed7aa,stroke-width:2px,color:#fff
+
     subgraph pr["PR"]
-        prcode["app/ 変更"] --> evalw["eval.yml\n(retrieve/generate を直接実行)"]
-        prinfra["infra/ 変更"] --> planw["terraform-plan.yml"]
+        direction TB
+        prcode(["app/ 変更"]):::trigger --> evalw(["eval.yml<br/>retrieve/generate 直接実行"]):::workflow
+        prinfra(["infra/ 変更"]):::trigger --> planw(["terraform-plan.yml"]):::workflow
     end
 
-    evalw -->|"OIDC: eval ロール\n(read-only)"| bedrockE[("Amazon Bedrock\nHaiku 4.5 judge")]
-    evalw -->|"QueryVectors"| s3vE[("S3 Vectors\n本番インデックス")]
-    evalw -->|"スコア比較\nevals/baseline.json"| ghcomment1["PR コメント + 必須チェック"]
-
-    planw -->|"OIDC: plan ロール\n(ReadOnlyAccess)"| tfstate1[("tfstate S3")]
-    planw --> ghcomment2["PR コメント (情報提供)"]
+    pr -.->|"マージ"| main
 
     subgraph main["main マージ"]
-        push["push"] --> applyw["terraform-apply.yml"]
+        direction TB
+        push(["push"]):::trigger --> applyw(["terraform-apply.yml"]):::workflow
     end
-    applyw -->|"1. build & push"| ecr[("ECR")]
-    applyw -->|"2. OIDC: apply ロール"| tfstate2[("tfstate S3")]
-    applyw -->|"3. apply"| stack["Lambda / API Gateway / S3 Vectors / SNS / Budgets"]
-    applyw -->|"4. /healthz スモークテスト"| stack
 
-    oidc["GitHub OIDC provider\n(infra/bootstrap, 手動 apply)"] -.->|"長期キーなし"| planw
+    oidc(["GitHub OIDC provider<br/>(infra/bootstrap, 手動 apply)"]):::auth
+    oidc -.->|"長期キーなし"| evalw
+    oidc -.-> planw
     oidc -.-> applyw
-    oidc -.-> evalw
+
+    evalw -->|"eval ロール<br/>read-only"| bedrockE[("Amazon Bedrock<br/>Haiku 4.5 judge")]:::aws
+    evalw -->|"QueryVectors"| s3vE[("S3 Vectors<br/>本番インデックス")]:::aws
+    evalw -->|"スコア比較<br/>baseline.json"| ghc1(["PRコメント + 必須チェック"]):::output
+
+    planw -->|"plan ロール<br/>ReadOnlyAccess"| tfstate1[("tfstate S3")]:::aws
+    planw --> ghc2(["PRコメント (情報提供)"]):::output
+
+    applyw -->|"1. build & push"| ecr[("ECR")]:::aws
+    applyw -->|"2. apply ロール"| tfstate2[("tfstate S3")]:::aws
+    applyw -->|"3. apply → 4. /healthz"| stack(["Lambda / API Gateway /<br/>S3 Vectors / SNS / Budgets"]):::output
+
+    style pr fill:none,stroke:#3b82f6,stroke-width:2px,color:#3b82f6
+    style main fill:none,stroke:#f97316,stroke-width:2px,color:#f97316
 ```
 
 - **`eval.yml`**: PR ごとに `app/rag/retrieve.py` / `app/rag/generate.py` を直接呼び出し、

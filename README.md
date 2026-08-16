@@ -7,7 +7,9 @@
 AWS 公式ドキュメント (Bedrock ユーザーガイド) に対する日本語 Q&A RAG システム。
 評価 (eval) を CI に組み込む LLMOps 基盤構築の練習用ポートフォリオプロジェクト。
 
-構成図: [docs/architecture.md](docs/architecture.md)
+![AWS 構成図](docs/images/aws-architecture.png)
+
+Phase 別の詳細な構成図 (ローカル構成 / CI/CD の内訳) は [docs/architecture.md](docs/architecture.md) を参照。
 
 ## 技術選定の要約
 
@@ -77,12 +79,6 @@ uv run python -m app.ingestion.upload_docs --doc bedrock-ug  # 出典PDFの保�
 
 curl "$(terraform -chdir=infra/envs/dev output -raw api_endpoint)healthz"
 ```
-
-## 出典・ライセンス
-
-- ドキュメント原文は [AWS Bedrock ユーザーガイド](https://docs.aws.amazon.com/pdfs/bedrock/latest/userguide/bedrock-ug.pdf) (Amazon Web Services) を出典とする
-- PDF 原文はリポジトリにコミットしない。`download_docs.py` で実行時に取得する
-- 回答には出典 (サービス名 / ドキュメント名 / セクション / ページ番号) を必ず含める
 
 ## コスト設計
 
