@@ -8,12 +8,11 @@ AWS 公式ドキュメントに対する日本語 Q&A RAG システム\
 RAGAS による精度評価を PR のマージ必須チェックに組み込んだ LLMOps 基盤\
 OIDC 認証で terraform による継続的デプロイを安全に実現
 
-## このプロジェクトで示したいこと
+## このプロジェクトの主題
 
 LLM アプリケーションは、プロンプトやチャンク分割などのわずかな変更で回答品質が静かに劣化する。
 本プロジェクトは、その品質リグレッションを **PR の段階で自動評価してマージをブロックする仕組み**を、
-評価パイプラインだけでなく AWS インフラ (Terraform)・CI/CD・監視・コスト管理まで含めて
-一人で設計・構築したもの。設計判断の経緯はすべて [ADR](docs/adr/) に記録している。
+評価パイプラインだけでなく AWS インフラ・CI/CD・監視・コスト管理まで含めて設計・構築したもの。
 
 ## プレビュー
 
@@ -146,9 +145,6 @@ curl "$(terraform -chdir=infra/envs/dev output -raw api_endpoint)healthz"
 
 - **コスト超過時の自動停止** — 現状の AWS Budgets + CloudWatch アラームは通知のみ。予算超過時に
   API を自動停止する仕組み (スロットリング 0 化など) は未実装
-- **baseline 比較が CI で機能していない** — データセットの SHA-256 が改行コード差で割れ、
-  tolerance ベースのリグレッション検知が floor のみの判定に落ちている
-  ([#4](https://github.com/yasaims/LLMOps-RAG/issues/4))
 - **検索のトピック取り違えによる誤答** — 検索結果には忠実 (faithfulness 高) なまま誤答する
   失敗モードがあり、top_k やチャンク分割の見直しを検討中
   ([#6](https://github.com/yasaims/LLMOps-RAG/issues/6))
