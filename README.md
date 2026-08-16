@@ -71,14 +71,9 @@ VECTOR_STORE=s3vectors uv run python -m evals.run_eval \
 ## 運用・監視
 
 CloudWatch ダッシュボード (`llmops-rag-dev`) で Lambda / API Gateway / Bedrock の
-メトリクスとリクエストごとのレイテンシ・トークン数・検索スコアを可視化している
-([ADR 0010](docs/adr/0010-observability-dashboard.md))。
+メトリクスとリクエストごとのレイテンシ・トークン数・検索スコアを可視化している([ADR 0010](docs/adr/0010-observability-dashboard.md))。
 
-<!-- TODO: デプロイ後にダッシュボードのスクリーンショットを docs/images/ に追加してここに掲載 -->
-
-アラーム (SNS メール通知): Lambda Errors/Throttles、API Gateway 5xx、Bedrock
-InvocationThrottles、API Gateway リクエスト急増 (乱用検知の tripwire)。いずれも検知のみで、
-自動遮断はまだ実装していない (下記コスト設計を参照)。
+![dashboard](docs/images/dashboard.png)
 
 ## ローカル起動手順
 
