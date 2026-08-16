@@ -24,7 +24,7 @@ LLM アプリケーションは、プロンプトやチャンク分割などの�
 
 ## アーキテクチャ
 
-![AWS 構成図](docs/images/aws-architecture.png)
+![AWS 構成図](docs/images/aws-architecture.png?v=2)
 
 Phase 別の詳細な構成図 (ローカル構成 / AWS 構成 / CI-CD / 監視・デモの内訳) は
 [docs/architecture.md](docs/architecture.md) を参照。
