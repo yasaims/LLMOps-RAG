@@ -7,14 +7,13 @@
 AWS 公式ドキュメント (Bedrock ユーザーガイド) に対する日本語 Q&A RAG システム。
 評価 (eval) を CI に組み込む LLMOps 基盤構築の練習用ポートフォリオプロジェクト。
 
-## デモ
+## プレビュー
 
-**[デモを試す](https://d1rr4ulyi0n3im.cloudfront.net/) **
+**[Q&A デモはこちら](https://d1rr4ulyi0n3im.cloudfront.net/)**
 
-> ポートフォリオ用デモです。回答は Amazon Bedrock ユーザーガイド (英語原文) のみに
-> 基づきます。乱用防止のため API Gateway のスロットリング (1 req/s) を掛けています。
+> 乱用防止のため API Gateway のスロットリング (1 req/s) を掛けています。
 
-<!-- TODO: デプロイ後にデモ画面のスクリーンショットを docs/images/ に追加してここに掲載 -->
+![デモの様子](docs/images/demo.png)
 
 ## アーキテクチャ
 
@@ -23,7 +22,7 @@ AWS 公式ドキュメント (Bedrock ユーザーガイド) に対する日本�
 Phase 別の詳細な構成図 (ローカル構成 / AWS 構成 / CI-CD / 監視・デモの内訳) は
 [docs/architecture.md](docs/architecture.md) を参照。
 
-## 何を実証しているか
+## 技術スタック
 
 | スキル   | 実装箇所                                                                                                                                      |
 | -------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -137,12 +136,8 @@ curl "$(terraform -chdir=infra/envs/dev output -raw api_endpoint)healthz"
   API Gateway のスロットリング (1 req/s) で乱用を抑制 — [ADR 0011](docs/adr/0011-demo-frontend-cloudfront.md)
 - 評価 (eval) 1 回あたり実測 **$0.65 前後** (25問、`evals/measure_cost.py` で計測。
   内訳は回答生成 $0.09 + judge 3指標 $0.56) — [ADR 0007](docs/adr/0007-eval-with-ragas-subset.md)
-- AWS Budgets (月次 10 USD) + CloudWatch アラーム 5 本 → SNS メール通知
+- AWS Budgets + CloudWatch アラーム 5 本 → SNS メール通知
   ([ADR 0010](docs/adr/0010-observability-dashboard.md))
-- ⚠️ **現状は検知のみで自動遮断の仕組みがない**。計画書が想定する「Budgets 超過 →
-  Lambda concurrency=0 の自動停止」は未着手の残タスク。IP 単位ではなくステージ全体の
-  スロットリングのため、悪意ある連続リクエストは理論上 1 日あたりの上限まで通り得る点に
-  留意 ([ADR 0011](docs/adr/0011-demo-frontend-cloudfront.md) 参照)
 
 ## 出典・ライセンス
 
