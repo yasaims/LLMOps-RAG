@@ -417,6 +417,22 @@ data "aws_iam_policy_document" "apply_stack_data" {
     resources = ["arn:aws:budgets::${data.aws_caller_identity.current.account_id}:budget/${local.dev_prefix}-*"]
   }
   statement {
+    # ⚠️ CloudWatch dashboard の ARN には region セグメントが無い
+    #    (arn:aws:cloudwatch::${Account}:dashboard/${Name})。region ありの ARN を書くと
+    #    マッチしないので注意 (Phase 4, docs/iam-permissions.md 参照)。
+    sid       = "CloudWatchDashboardManage"
+    actions   = ["cloudwatch:PutDashboard", "cloudwatch:GetDashboard", "cloudwatch:DeleteDashboards"]
+    resources = ["arn:aws:cloudwatch::${data.aws_caller_identity.current.account_id}:dashboard/${local.dev_prefix}*"]
+  }
+  statement {
+    # ⚠️ ListDashboards はサービス認可リファレンス上 Resource types 欄が空 = リソースタイプ未定義。
+    #    logs:DescribeLogGroups と同じ理由で Resource は "*" でなければならない
+    #    (docs/iam-permissions.md の既知の落とし穴 4 と同種)。読み取り専用のため許容する。
+    sid       = "CloudWatchDashboardList"
+    actions   = ["cloudwatch:ListDashboards"]
+    resources = ["*"]
+  }
+  statement {
     # terraform 自体は Bedrock リソースを作らないが、推論プロファイル ID の妥当性を
     # plan/apply 時に確認できるよう読み取りのみ許可する。
     sid       = "BedrockDescribe"
