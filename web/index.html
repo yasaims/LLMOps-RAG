@@ -1,49 +1,58 @@
 <!doctype html>
 <html lang="ja">
-<head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>LLMOps RAG — Bedrock ドキュメント Q&amp;A デモ</title>
-  <link rel="stylesheet" href="style.css" />
-</head>
-<body>
-  <header>
-    <h1>Bedrock ドキュメント Q&amp;A (デモ)</h1>
-    <p class="notice">
-      ポートフォリオ用デモです。回答は Amazon Bedrock ユーザーガイド (英語原文) のみに
-      基づきます。乱用防止のためリクエスト数を制限しています。
-      <a href="https://github.com/yasaims/LLMOps-RAG" target="_blank" rel="noopener">GitHub</a>
-    </p>
-  </header>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>LLMOps RAG — Bedrock ドキュメント Q&amp;A デモ</title>
+    <link rel="stylesheet" href="style.css" />
+  </head>
+  <body>
+    <header>
+      <h1>Bedrock ドキュメント Q&amp;A (デモ)</h1>
+      <p class="notice">
+        ポートフォリオ用デモです。<br />
+        <b>RAG(検索拡張生成)</b>により、AmazonBedrock ユーザーガイド
+        (英語原文)<b>のみ</b>に基づいて回答します。
+        <a
+          href="https://github.com/yasaims/LLMOps-RAG"
+          target="_blank"
+          rel="noopener"
+          >GitHub</a
+        >
+      </p>
+    </header>
 
-  <main>
-    <form id="query-form">
-      <textarea
-        id="question"
-        placeholder="例: Bedrock でモデルアクセスを有効にする手順は？"
-        rows="3"
-        required
-      ></textarea>
-      <button id="submit-btn" type="submit">質問する</button>
-    </form>
+    <main>
+      <form id="query-form">
+        <textarea
+          id="question"
+          placeholder="例: Bedrock でモデルアクセスを有効にする手順は？"
+          rows="3"
+          required
+        ></textarea>
+        <button id="submit-btn" type="submit">質問する</button>
+      </form>
 
-    <section id="status" class="status" hidden></section>
+      <section id="status" class="status" hidden></section>
 
-    <section id="result" class="result" hidden>
-      <h2>回答</h2>
-      <p id="answer"></p>
+      <section id="result" class="result" hidden>
+        <h2>回答</h2>
+        <p id="answer"></p>
 
-      <h3>出典</h3>
-      <ul id="sources"></ul>
+        <h3>出典</h3>
+        <ul id="sources"></ul>
 
-      <p class="meta" id="meta"></p>
-    </section>
-  </main>
+        <p class="meta" id="meta"></p>
+      </section>
+    </main>
 
-  <footer>
-    <p>Amazon Bedrock ユーザーガイド (© Amazon Web Services, Inc.) を出典として引用しています。</p>
-  </footer>
+    <footer>
+      <p>
+        Amazon Bedrock ユーザーガイド (© Amazon Web Services, Inc.)
+        を出典として引用しています。
+      </p>
+    </footer>
 
-  <script src="app.js"></script>
-</body>
+    <script src="app.js"></script>
+  </body>
 </html>
