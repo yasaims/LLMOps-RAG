@@ -330,6 +330,32 @@ data "aws_iam_policy_document" "apply_stack_compute" {
     resources = ["*"]
   }
   statement {
+    # ⚠️ HTTP API のアクセスログ有効化・更新 (aws_apigatewayv2_stage の
+    #    access_log_settings) は、API Gateway が CreateLogDelivery 経由で
+    #    CloudWatch Logs の「ログ配信」機能を呼び出すため、通常の
+    #    logs:CreateLogStream/PutLogEvents (LogsManage statement) とは別に、
+    #    呼び出し元 (apply ロール) 自身にこれらのアクションが要る。
+    #    サービス認可リファレンス上いずれも Permission-only actions =
+    #    リソースタイプ未定義のため Resource="*" が必須 (logs:DescribeLogGroups と
+    #    同じ制約)。2026-08、develop→main の初回 apply (throttling 値変更で
+    #    aws_apigatewayv2_stage の UpdateStage が初めて apply ロールから実行された) が
+    #    BadRequestException: Insufficient permissions to enable logging /
+    #    logs:CreateLogDelivery で失敗して判明した。CreateLogGroup はここに含めない
+    #    (log-group* リソースタイプを持ち、LogsManage の
+    #    /aws/apigateway/${dev_prefix}-* で既にカバー済みのため)。
+    sid = "LogsDeliveryForApiGatewayAccessLogging"
+    actions = [
+      "logs:CreateLogDelivery",
+      "logs:GetLogDelivery",
+      "logs:UpdateLogDelivery",
+      "logs:DeleteLogDelivery",
+      "logs:ListLogDeliveries",
+      "logs:PutResourcePolicy",
+      "logs:DescribeResourcePolicies",
+    ]
+    resources = ["*"]
+  }
+  statement {
     # infra/modules/ci-eval が作る customer-managed policy
     # (llmops-rag-dev-eval-ci-policy) の管理。IamManageDevRoles は role/${dev_prefix}-*
     # しかカバーしていないため、policy/${dev_prefix}-* 用に別 statement が要る
