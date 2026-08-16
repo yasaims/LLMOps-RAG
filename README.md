@@ -4,8 +4,9 @@
 [![Eval](https://github.com/yasaims/LLMOps-RAG/actions/workflows/eval.yml/badge.svg)](https://github.com/yasaims/LLMOps-RAG/actions/workflows/eval.yml)
 [![Terraform Apply](https://github.com/yasaims/LLMOps-RAG/actions/workflows/terraform-apply.yml/badge.svg)](https://github.com/yasaims/LLMOps-RAG/actions/workflows/terraform-apply.yml)
 
-AWS 公式ドキュメント (Bedrock ユーザーガイド) に対する日本語 Q&A RAG システム。
-評価 (eval) を CI に組み込む LLMOps 基盤構築の練習用ポートフォリオプロジェクト。
+AWS 公式ドキュメントに対する日本語 Q&A RAG システム\
+RAGAS による精度評価を CI に組み込む LLMOps 基盤構築の練習用プロジェクト\
+OIDC 認証で terraform による継続的デプロイを安全に実現
 
 ## プレビュー
 
