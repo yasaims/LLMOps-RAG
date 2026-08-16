@@ -40,9 +40,10 @@ import contextlib
 import json
 import sys
 import threading
+from collections.abc import Iterator
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Iterator
+from typing import Any
 
 import botocore.client
 
@@ -113,7 +114,9 @@ def metered_bedrock() -> Iterator[Meter]:
     meter = Meter()
     orig = botocore.client.BaseClient._make_api_call
 
-    def patched(self: Any, operation_name: str, api_params: dict[str, Any], *args: Any, **kwargs: Any) -> Any:
+    def patched(
+        self: Any, operation_name: str, api_params: dict[str, Any], *args: Any, **kwargs: Any
+    ) -> Any:
         resp = orig(self, operation_name, api_params, *args, **kwargs)
         try:
             if self.meta.service_model.service_name != "bedrock-runtime":
@@ -174,7 +177,9 @@ def _record_cost_usd(rec: CallRecord) -> float | None:
     return (rec.input_tokens * price["input"] + rec.output_tokens * price["output"]) / 1_000_000
 
 
-def build_cost_report(meter: Meter, n_questions: int, top_k: int, judge_model: str) -> dict[str, Any]:
+def build_cost_report(
+    meter: Meter, n_questions: int, top_k: int, judge_model: str
+) -> dict[str, Any]:
     by_phase: dict[str, dict[str, Any]] = {}
     unpriced_models: set[str] = set()
     total_usd = 0.0
@@ -319,7 +324,9 @@ def run(
                 print(f"エラー: ragas judge 実行中に例外が発生しました: {e}", file=sys.stderr)
                 return 2
 
-    report = build_cost_report(meter, n_questions=len(dataset), top_k=top_k, judge_model=judge_model)
+    report = build_cost_report(
+        meter, n_questions=len(dataset), top_k=top_k, judge_model=judge_model
+    )
     text = render_text(report)
 
     out_path.parent.mkdir(parents=True, exist_ok=True)
@@ -342,7 +349,9 @@ def main() -> None:
     parser.add_argument("--judge-model", default=run_eval.DEFAULT_JUDGE_MODEL)
     parser.add_argument("--judge-region", default=run_eval.DEFAULT_JUDGE_REGION)
     parser.add_argument(
-        "--no-judge", action="store_true", help="judge (ragas) をスキップし retrieve+generate のみ計測"
+        "--no-judge",
+        action="store_true",
+        help="judge (ragas) をスキップし retrieve+generate のみ計測",
     )
     args = parser.parse_args()
 
