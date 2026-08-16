@@ -63,14 +63,29 @@ module "api" {
   throttling_burst_limit = var.throttling_burst_limit
 }
 
+module "frontend" {
+  source = "../../modules/frontend"
+
+  project         = var.project
+  env             = var.env
+  api_domain_name = module.api.api_domain_name
+  web_dir         = "${path.module}/../../../web"
+}
+
 module "observability" {
   source = "../../modules/observability"
 
-  project              = var.project
-  env                  = var.env
-  notification_email   = var.notification_email
-  monthly_budget_usd   = var.monthly_budget_usd
-  lambda_function_name = module.api.function_name
+  project                = var.project
+  env                    = var.env
+  aws_region             = var.aws_region
+  notification_email     = var.notification_email
+  monthly_budget_usd     = var.monthly_budget_usd
+  lambda_function_name   = module.api.function_name
+  lambda_log_group_name  = module.api.log_group_name
+  api_id                 = module.api.api_id
+  api_stage_name         = module.api.stage_name
+  bedrock_chat_model_id  = var.bedrock_chat_model_id
+  bedrock_embed_model_id = var.bedrock_embed_model_id
 }
 
 # PR ごとの RAG 品質評価 (Phase 3) が本番 S3 Vectors に対して read-only で

@@ -65,13 +65,14 @@ variable "lambda_reserved_concurrency" {
 }
 
 variable "throttling_rate_limit" {
-  type    = number
-  default = 2
+  type        = number
+  description = "API Gateway ステージ全体の秒間リクエスト数上限。Phase 4 でデモを公開するため 2 → 1 に引き下げた (IP 単位ではなくステージ全体の上限である点に注意。ADR 0011)"
+  default     = 1
 }
 
 variable "throttling_burst_limit" {
   type    = number
-  default = 5
+  default = 3
 }
 
 variable "notification_email" {
