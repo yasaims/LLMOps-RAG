@@ -9,7 +9,7 @@ AWS 公式ドキュメント (Bedrock ユーザーガイド) に対する日本�
 
 ## デモ
 
-**[デモを試す](https://example.com/) <!-- TODO: `terraform -chdir=infra/envs/dev output -raw demo_url` の値に差し替え -->**
+**[デモを試す](https://d1rr4ulyi0n3im.cloudfront.net/) **
 
 > ポートフォリオ用デモです。回答は Amazon Bedrock ユーザーガイド (英語原文) のみに
 > 基づきます。乱用防止のため API Gateway のスロットリング (1 req/s) を掛けています。
@@ -25,27 +25,27 @@ Phase 別の詳細な構成図 (ローカル構成 / AWS 構成 / CI-CD / 監視
 
 ## 何を実証しているか
 
-| スキル | 実装箇所 |
-| --- | --- |
+| スキル   | 実装箇所                                                                                                                                      |
+| -------- | --------------------------------------------------------------------------------------------------------------------------------------------- |
 | AWS 構築 | Bedrock (Cohere Embed v4 + Claude Haiku 4.5) / Lambda / API Gateway / S3 Vectors / CloudFront / CloudWatch — [infra/modules/](infra/modules/) |
-| IaC | Terraform (モジュール分割、bootstrap → envs/dev の2段構成) — [infra/](infra/) |
-| CI/CD | GitHub Actions 4 本 (lint/test, terraform plan/apply, RAG品質評価) + OIDC 認証 — [.github/workflows/](.github/workflows/) |
-| LLMOps | 検索・生成の自動評価をマージ必須チェック化、コスト実測、監視ダッシュボード — [evals/](evals/) |
-| Python | FastAPI 推論 API + 取り込みパイプライン、型ヒント + ruff — [app/](app/) |
+| IaC      | Terraform (モジュール分割、bootstrap → envs/dev の2段構成) — [infra/](infra/)                                                                 |
+| CI/CD    | GitHub Actions 4 本 (lint/test, terraform plan/apply, RAG品質評価) + OIDC 認証 — [.github/workflows/](.github/workflows/)                     |
+| LLMOps   | 検索・生成の自動評価をマージ必須チェック化、コスト実測、監視ダッシュボード — [evals/](evals/)                                                 |
+| Python   | FastAPI 推論 API + 取り込みパイプライン、型ヒント + ruff — [app/](app/)                                                                       |
 
 ## 設計判断
 
-| 項目 | 選定 | ADR |
-| --- | --- | --- |
-| 埋め込み | `cohere.embed-v4:0` (日本語質問 × 英語原文のクロスリンガル検索) | [0002](docs/adr/0002-embedding-model-selection.md) |
-| 生成 | `jp.anthropic.claude-haiku-4-5-20251001-v1:0` (推論プロファイル経由) | [0004](docs/adr/0004-bedrock-inference-profile.md) |
-| ベクトルストア | pgvector (ローカル) / S3 Vectors (AWS、VPC不要でアイドル時ほぼ0円) | [0001](docs/adr/0001-vector-store-selection.md) / [0005](docs/adr/0005-s3-vectors-for-phase2.md) |
-| チャンク分割 | 見出し認識 + スライディングウィンドウ | [0003](docs/adr/0003-chunking-strategy.md) |
-| 実行基盤 | Lambda (コンテナイメージ) + API Gateway HTTP API | [0006](docs/adr/0006-lambda-container-http-api.md) |
-| 評価 | 検索は決定的指標 (recall@k/MRR)、生成は Ragas + Bedrock judge | [0007](docs/adr/0007-eval-with-ragas-subset.md) |
-| CI/CD | GitHub OIDC (長期キーなし) + plan/apply/eval の3ロール + 品質ゲート | [0008](docs/adr/0008-github-oidc-iam-roles.md) / [0009](docs/adr/0009-cicd-quality-gate.md) |
-| 監視 | 既存 JSON ログ + Logs Insights (EMF/詳細メトリクスは課金回避のため不使用) | [0010](docs/adr/0010-observability-dashboard.md) |
-| デモ公開 | CloudFront 1 distribution + 2 origins で CORS を回避 | [0011](docs/adr/0011-demo-frontend-cloudfront.md) |
+| 項目           | 選定                                                                      | ADR                                                                                              |
+| -------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
+| 埋め込み       | `cohere.embed-v4:0` (日本語質問 × 英語原文のクロスリンガル検索)           | [0002](docs/adr/0002-embedding-model-selection.md)                                               |
+| 生成           | `jp.anthropic.claude-haiku-4-5-20251001-v1:0` (推論プロファイル経由)      | [0004](docs/adr/0004-bedrock-inference-profile.md)                                               |
+| ベクトルストア | pgvector (ローカル) / S3 Vectors (AWS、VPC不要でアイドル時ほぼ0円)        | [0001](docs/adr/0001-vector-store-selection.md) / [0005](docs/adr/0005-s3-vectors-for-phase2.md) |
+| チャンク分割   | 見出し認識 + スライディングウィンドウ                                     | [0003](docs/adr/0003-chunking-strategy.md)                                                       |
+| 実行基盤       | Lambda (コンテナイメージ) + API Gateway HTTP API                          | [0006](docs/adr/0006-lambda-container-http-api.md)                                               |
+| 評価           | 検索は決定的指標 (recall@k/MRR)、生成は Ragas + Bedrock judge             | [0007](docs/adr/0007-eval-with-ragas-subset.md)                                                  |
+| CI/CD          | GitHub OIDC (長期キーなし) + plan/apply/eval の3ロール + 品質ゲート       | [0008](docs/adr/0008-github-oidc-iam-roles.md) / [0009](docs/adr/0009-cicd-quality-gate.md)      |
+| 監視           | 既存 JSON ログ + Logs Insights (EMF/詳細メトリクスは課金回避のため不使用) | [0010](docs/adr/0010-observability-dashboard.md)                                                 |
+| デモ公開       | CloudFront 1 distribution + 2 origins で CORS を回避                      | [0011](docs/adr/0011-demo-frontend-cloudfront.md)                                                |
 
 IAM 権限の全体像 (誰が何をできるか) は [docs/iam-permissions.md](docs/iam-permissions.md) にまとめている。
 
@@ -56,12 +56,12 @@ PR ごとに `eval.yml` が本番 S3 Vectors に対して RAG 品質 (検索 + �
 必須チェックとして機能する ([ADR 0007](docs/adr/0007-eval-with-ragas-subset.md) /
 [ADR 0009](docs/adr/0009-cicd-quality-gate.md))。
 
-| 指標 | baseline (25問) | tolerance | floor |
-| --- | ---: | ---: | ---: |
-| `recall@5` | 0.680 | 0.02 | 0.50 |
-| `mrr` | 0.467 | 0.02 | 0.30 |
-| `generation_score` (Faithfulness/FactualCorrectness/ContextRecall の平均) | 0.834 | 0.10 | 0.65 |
-| `citation_format_valid` | 1.000 | 0.02 | 0.90 |
+| 指標                                                                      | baseline (25問) | tolerance | floor |
+| ------------------------------------------------------------------------- | --------------: | --------: | ----: |
+| `recall@5`                                                                |           0.680 |      0.02 |  0.50 |
+| `mrr`                                                                     |           0.467 |      0.02 |  0.30 |
+| `generation_score` (Faithfulness/FactualCorrectness/ContextRecall の平均) |           0.834 |      0.10 |  0.65 |
+| `citation_format_valid`                                                   |           1.000 |      0.02 |  0.90 |
 
 ```bash
 uv sync --group eval
