@@ -17,3 +17,7 @@ output "vector_index" {
 output "eval_ci_role_arn" {
   value = module.ci_eval.role_arn
 }
+
+output "dashboard_name" {
+  value = module.observability.dashboard_name
+}

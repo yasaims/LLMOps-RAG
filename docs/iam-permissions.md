@@ -68,7 +68,7 @@ flowchart TB
 | --- | --- | --- |
 | `llmops-rag-ci-tf-apply-state` | tfstate | オブジェクトの `GetObject`/`PutObject` + ロックオブジェクトの読み書き |
 | `llmops-rag-ci-tf-apply-compute` | Lambda / CloudWatch Logs / API Gateway / ECR / IAM ロール・ポリシー | `lambda:*` (`function:${dev_prefix}-*`)、`logs:*` (ロググループ prefix スコープ) + `logs:DescribeLogGroups` (`Resource="*"` 必須、下記参照)、`apigateway:*` (`/apis*`、リソースレベル権限が実用的でないため広め)、`ecr:*` (該当リポジトリのみ)、IAM ロール管理 (`role/${dev_prefix}-*`) と IAM ポリシー管理 (`policy/${dev_prefix}-*`)、OIDC provider の読み取り (`iam:Get/ListOpenIDConnectProviders`) |
-| `llmops-rag-ci-tf-apply-data` | S3 Vectors / S3 docs バケット / SNS / CloudWatch アラーム / Budgets / Bedrock (読み取りのみ) | `s3vectors:*` (`bucket/${dev_prefix}-*` 系)、`s3:*` (`${dev_prefix}-docs-*`)、`sns:*`、CloudWatch アラーム管理系アクション、`budgets:*`、`bedrock:Get/ListInferenceProfile`・`GetFoundationModel` (plan/apply 時の推論プロファイル ID 妥当性確認用、Bedrock リソース自体は作らない) |
+| `llmops-rag-ci-tf-apply-data` | S3 Vectors / S3 docs バケット / SNS / CloudWatch アラーム・ダッシュボード / Budgets / Bedrock (読み取りのみ) | `s3vectors:*` (`bucket/${dev_prefix}-*` 系)、`s3:*` (`${dev_prefix}-docs-*`)、`sns:*`、CloudWatch アラーム管理系アクション、CloudWatch ダッシュボード管理 (`Put`/`Get`/`DeleteDashboards` は `dashboard/${dev_prefix}*`、`ListDashboards` のみ `Resource="*"`。Phase 4)、`budgets:*`、`bedrock:Get/ListInferenceProfile`・`GetFoundationModel` (plan/apply 時の推論プロファイル ID 妥当性確認用、Bedrock リソース自体は作らない) |
 
 いずれも `${project}-${env}-*` = `llmops-rag-dev-*` の命名規約でリソースレベルにスコープ
 (API Gateway・EcrAuth・S3VectorsAccountLevel 等、リソースレベル権限が存在しないアクションのみ
@@ -145,6 +145,11 @@ apply ロールの IAM 権限はもともと `role|policy/llmops-rag-dev-*` に�
    `--resource-arns` を付けずに確認する
 6. **`yasaims` は個人アカウント**: 「fork PR ワークフローに承認を必須にする」設定自体が
    Organization 限定機能で存在しないため無効化できない (常に承認必須)
+7. **CloudWatch dashboard の ARN には region セグメントが無い** (Phase 4):
+   `arn:aws:cloudwatch::${Account}:dashboard/${Name}` であり、他の CloudWatch リソース
+   (alarm 等、`arn:aws:cloudwatch:${Region}:${Account}:...`) と違って region を含めると
+   一致しない。`cloudwatch:ListDashboards` は他の List 系アクション同様リソースタイプが
+   定義されていないため `Resource="*"` が必須 (落とし穴 4 と同種)
 
 ## 権限を変更するときの手順
 
