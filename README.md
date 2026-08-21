@@ -18,6 +18,7 @@ LLM アプリケーションは、プロンプトやチャンク分割などの�
 
 **[Q&A デモはこちら](https://d1rr4ulyi0n3im.cloudfront.net/)**
 
+> 常時デプロイのため軽量モデルを使用しています。あくまでRAGシステムのデモとしてお考えください。
 > 乱用防止のため API Gateway のスロットリング (1 req/s) を掛けています。
 
 ![デモの様子](docs/images/demo.png)
