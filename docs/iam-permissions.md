@@ -105,6 +105,19 @@ flowchart TB
   `PutUserPolicy`、`organizations:*`、`account:*` を Deny
 - `DenyTfstateBucketDeletion`: tfstate バケットの `s3:DeleteBucket` を Deny
 
+### dev ロールの permissions boundary (`llmops-rag-ci-dev-boundary`)
+
+apply ロールが `role/llmops-rag-dev-*` を介して管理者権限へ昇格する経路 (任意ポリシーの
+`AttachRolePolicy` / `PutRolePolicy` / `CreatePolicyVersion` など) を塞ぐための上限ポリシー。
+`infra/bootstrap` が管理し、名前が `llmops-rag-ci-*` のため guardrail により CI からは編集できない。
+
+- 上限の中身: Lambda ログ書き込み / `bedrock:InvokeModel` / S3 Vectors の `QueryVectors`・`GetVectors`・`GetIndex` のみ
+- apply ロールの `CreateRole` / `PutRolePermissionsBoundary` / `PutRolePolicy` / `DeleteRolePolicy` / `DetachRolePolicy` /
+  `AttachRolePolicy` は `iam:PermissionsBoundary` が一致する場合のみ許可。`AttachRolePolicy` は加えて
+  `policy/llmops-rag-dev-*` のみ。`PassRole` は `lambda.amazonaws.com` 宛のみ
+- `iam:DeleteRolePermissionsBoundary` は guardrail で Deny
+- dev ロール (`module.api` / `module.ci_eval`) は `permissions_boundary` を必ず指定する
+
 apply ロールの IAM 権限はもともと `role|policy/llmops-rag-dev-*` にしかスコープしていない
 ため、guardrail がなくても `llmops-rag-ci-*` 自体は触れない。「意図を明示するコード」として
 二重に残している。
@@ -170,6 +183,10 @@ apply ロールの IAM 権限はもともと `role|policy/llmops-rag-dev-*` に�
    このとき `BadRequestException: Insufficient permissions to enable logging` で
    判明した (2026-08)。`logs:CreateLogGroup` は `log-group*` リソースタイプを持つため
    `LogsManage` の `/aws/apigateway/${dev_prefix}-*` で別途カバー済み
+
+10. **dev ロールに権限を足すには、先に boundary を広げる**: boundary は bootstrap (手動 apply) 管理。
+    `infra/envs/dev` 側でロール権限だけ足しても CI の apply は成功するが、boundary の外の権限は
+    実際には効かない (エラーにならず黙って頭打ちになる)
 
 ## 権限を変更するときの手順
 
