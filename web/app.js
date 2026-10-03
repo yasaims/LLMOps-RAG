@@ -25,7 +25,10 @@
       const pageText = source.page_start != null ? ` (p.${source.page_start})` : "";
       const sectionText = source.section ? `${source.section}${pageText}` : source.doc;
       const link = document.createElement("a");
-      link.href = source.source_url;
+      link.href =
+        source.page_start != null
+          ? `${source.source_url.split("#")[0]}#page=${source.page_start}`
+          : source.source_url;
       link.target = "_blank";
       link.rel = "noopener";
       link.textContent = `[${source.index}] ${sectionText}`;
