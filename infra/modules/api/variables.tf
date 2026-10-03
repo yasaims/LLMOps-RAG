@@ -95,3 +95,8 @@ variable "throttling_burst_limit" {
   type    = number
   default = 5
 }
+
+variable "permissions_boundary_arn" {
+  type        = string
+  description = "dev ロールに必須の permissions boundary (infra/bootstrap 管理)"
+}

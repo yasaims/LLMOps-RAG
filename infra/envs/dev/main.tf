@@ -14,6 +14,11 @@ provider "aws" {
 
 data "aws_caller_identity" "current" {}
 
+locals {
+  # infra/bootstrap が管理する boundary。guardrail が iam:GetPolicy を Deny するため data source ではなく ARN で参照する。
+  dev_boundary_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/llmops-rag-ci-dev-boundary"
+}
+
 # infra/bootstrap で一度きり作成済みの GitHub OIDC provider を参照する (鶏卵問題を避けるため
 # provider 自体の作成は envs/dev の外に置いている。詳細は infra/bootstrap/github_oidc.tf と
 # ADR 0008 を参照)。
@@ -38,6 +43,8 @@ module "ingestion" {
 
 module "api" {
   source = "../../modules/api"
+
+  permissions_boundary_arn = local.dev_boundary_arn
 
   project    = var.project
   env        = var.env
@@ -102,4 +109,6 @@ module "ci_eval" {
   oidc_provider_arn     = data.aws_iam_openid_connect_provider.github.arn
   vector_index_arn      = module.vector_store.index_arn
   bedrock_model_arns    = module.api.bedrock_model_arns
+
+  permissions_boundary_arn = local.dev_boundary_arn
 }

@@ -21,3 +21,7 @@ output "ci_tf_plan_role_arn" {
 output "ci_tf_apply_role_arn" {
   value = aws_iam_role.ci_tf_apply.arn
 }
+
+output "dev_role_boundary_arn" {
+  value = aws_iam_policy.dev_boundary.arn
+}

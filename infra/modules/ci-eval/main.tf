@@ -46,6 +46,8 @@ data "aws_iam_policy_document" "assume" {
 resource "aws_iam_role" "eval_ci" {
   name               = local.role_name
   assume_role_policy = data.aws_iam_policy_document.assume.json
+
+  permissions_boundary = var.permissions_boundary_arn
 }
 
 data "aws_iam_policy_document" "eval_ci" {
