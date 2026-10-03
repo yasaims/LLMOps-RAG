@@ -75,8 +75,15 @@ variable "lambda_memory_mb" {
 }
 
 variable "lambda_timeout_s" {
-  type    = number
-  default = 60
+  type        = number
+  description = "Kept below the API Gateway HTTP API 30 s integration timeout so the function never outlives the request"
+  default     = 29
+}
+
+variable "bedrock_retry_budget_s" {
+  type        = number
+  description = "Max seconds per Bedrock call spent retrying throttling. Embed + chat retries plus the calls themselves must fit in lambda_timeout_s"
+  default     = 10
 }
 
 variable "reserved_concurrency" {
