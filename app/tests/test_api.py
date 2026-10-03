@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api.main import app
+from app.api.schemas import MAX_QUESTION_CHARS
 from app.rag.generate import GenerateResult, Source
 from app.vectorstore import SearchResult
 
@@ -106,3 +107,20 @@ def test_query_rejects_empty_question(client):
     c, _ = client
     resp = c.post("/query", json={"question": ""})
     assert resp.status_code == 422
+
+
+def test_query_rejects_overlong_question(client):
+    c, _ = client
+    resp = c.post("/query", json={"question": "あ" * (MAX_QUESTION_CHARS + 1)})
+    assert resp.status_code == 422
+
+
+def test_query_failure_returns_500_and_logs_query_failed(client, caplog):
+    c, _ = client
+    with patch("app.api.main.retrieve", side_effect=RuntimeError("bedrock down")):
+        resp = c.post("/query", json={"question": "質問文"})
+
+    assert resp.status_code == 500
+    failed = [r for r in caplog.records if r.getMessage() == "query_failed"]
+    assert len(failed) == 1
+    assert failed[0].extra_fields["error_type"] == "RuntimeError"

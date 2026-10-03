@@ -8,7 +8,14 @@ from typing import Any, Literal
 
 import boto3
 from botocore.exceptions import ClientError
-from tenacity import retry, retry_if_exception, stop_after_attempt, wait_exponential
+from tenacity import (
+    RetryCallState,
+    retry,
+    retry_if_exception,
+    stop_after_attempt,
+    stop_before_delay,
+    wait_exponential,
+)
 
 from app.config import get_settings
 
@@ -26,10 +33,17 @@ def _is_throttling(exc: BaseException) -> bool:
     return code in {"ThrottlingException", "TooManyRequestsException"}
 
 
+def _exceeds_retry_budget(retry_state: RetryCallState) -> bool:
+    budget = get_settings().bedrock_retry_budget_s
+    if budget <= 0:
+        return False
+    return stop_before_delay(budget)(retry_state)
+
+
 _retry_throttled = retry(
     retry=retry_if_exception(_is_throttling),
     wait=wait_exponential(multiplier=1, min=1, max=30),
-    stop=stop_after_attempt(6),
+    stop=stop_after_attempt(6) | _exceeds_retry_budget,
     reraise=True,
 )
 

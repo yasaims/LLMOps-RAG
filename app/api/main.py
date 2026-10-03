@@ -65,13 +65,28 @@ def healthz() -> dict:
 
 
 @app.post("/query", response_model=QueryResponse)
-def query(req: QueryRequest) -> QueryResponse:
+def query(req: QueryRequest) -> QueryResponse | JSONResponse:
     settings = get_settings()
     top_k = req.top_k or settings.rag_top_k
 
     start = time.perf_counter()
-    chunks = retrieve(req.question, top_k)
-    result = generate_answer(req.question, chunks)
+    try:
+        chunks = retrieve(req.question, top_k)
+        result = generate_answer(req.question, chunks)
+    except Exception as e:
+        # Mangum converts unhandled errors into a successful Lambda invocation, so the
+        # Lambda Errors metric never sees them. This log is the per-request failure record.
+        logger.exception(
+            "query_failed",
+            extra={
+                "extra_fields": {
+                    "latency_ms": round((time.perf_counter() - start) * 1000, 1),
+                    "top_k": top_k,
+                    "error_type": type(e).__name__,
+                }
+            },
+        )
+        return UTF8JSONResponse(status_code=500, content={"detail": "Internal Server Error"})
     latency_ms = (time.perf_counter() - start) * 1000
 
     log_event(
