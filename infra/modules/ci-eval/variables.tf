@@ -35,3 +35,8 @@ variable "bedrock_model_arns" {
   type        = list(string)
   description = "eval CI に許可する bedrock:InvokeModel 対象 ARN (module.api.bedrock_model_arns)"
 }
+
+variable "permissions_boundary_arn" {
+  type        = string
+  description = "dev ロールに必須の permissions boundary (infra/bootstrap 管理)"
+}

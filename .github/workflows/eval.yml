@@ -31,7 +31,7 @@ jobs:
     # 原因を除去した後の実測は 25 問で約 5 分 (ローカル 3 分 51 秒) なので、その約 6 倍。
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           fetch-depth: 0
 
@@ -54,7 +54,7 @@ jobs:
         if: steps.changes.outputs.should_run != 'true'
         run: echo "評価対象の変更 (app/, evals/, pyproject.toml, uv.lock) がないためスキップしました。" >> "$GITHUB_STEP_SUMMARY"
 
-      - uses: astral-sh/setup-uv@v10.0.1
+      - uses: astral-sh/setup-uv@20cfd1bf945f4377ade1205e4dbc17946fc9a30d # v10.0.1
         if: steps.changes.outputs.should_run == 'true'
         with:
           enable-cache: true
@@ -65,7 +65,7 @@ jobs:
 
       - name: Configure AWS credentials (eval, read-only)
         if: steps.changes.outputs.should_run == 'true'
-        uses: aws-actions/configure-aws-credentials@v6
+        uses: aws-actions/configure-aws-credentials@e1253824e5c10ff9df46874f81ed3ec929e19cfd # v6
         with:
           role-to-assume: ${{ vars.AWS_ROLE_EVAL }}
           aws-region: ${{ vars.AWS_REGION }}
@@ -92,7 +92,7 @@ jobs:
 
       - name: レポートを Artifact として保存
         if: steps.changes.outputs.should_run == 'true' && always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
           name: eval-report
           path: evals/out/
@@ -100,7 +100,7 @@ jobs:
 
       - name: PR に評価結果をコメント (upsert)
         if: steps.changes.outputs.should_run == 'true' && always() && github.event_name == 'pull_request'
-        uses: actions/github-script@v9
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9
         with:
           script: |
             const fs = require("fs");

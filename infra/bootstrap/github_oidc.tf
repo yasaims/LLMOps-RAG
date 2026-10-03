@@ -20,6 +20,11 @@ resource "aws_iam_openid_connect_provider" "github_actions" {
   # thumbprint_list は AWS provider v5 以降 Optional。AWS 側が主要クラウド事業者のルート CA を
   # 内部で信頼するようになったため、GitHub の中間証明書のローテーションを追随する必要がない。
   thumbprint_list = []
+
+  # AWS 側が thumbprint を保持するため、コードの空リストとの差分を無視する。
+  lifecycle {
+    ignore_changes = [thumbprint_list]
+  }
 }
 
 locals {
@@ -27,6 +32,44 @@ locals {
   ci_tf_apply_role_name = "llmops-rag-ci-tf-apply"
   dev_prefix            = "${var.project}-${var.env}"
   tfstate_key           = "envs/${var.env}/terraform.tfstate"
+
+  dev_boundary_name    = "llmops-rag-ci-dev-boundary"
+  dev_boundary_arn     = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/${local.dev_boundary_name}"
+  dev_role_arn_pattern = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.dev_prefix}-*"
+}
+
+# --- dev ロールの permissions boundary ---------------------------------------
+#
+# llmops-rag-dev-* ロールの権限の上限。apply ロールはこの boundary 付きでしかロールを作成・変更できず、
+# boundary 自体は policy/llmops-rag-ci-* として guardrail の対象なので CI からは編集できない。
+# 新しい権限を dev ロールに足すときは、先にここを手動 apply で広げる必要がある。
+
+data "aws_iam_policy_document" "dev_boundary" {
+  statement {
+    sid     = "Logs"
+    actions = ["logs:CreateLogStream", "logs:PutLogEvents"]
+    resources = [
+      "arn:aws:logs:${var.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/${local.dev_prefix}-*:*",
+    ]
+  }
+  statement {
+    sid     = "BedrockInvoke"
+    actions = ["bedrock:InvokeModel"]
+    resources = [
+      "arn:aws:bedrock:*::foundation-model/*",
+      "arn:aws:bedrock:${var.region}:${data.aws_caller_identity.current.account_id}:inference-profile/*",
+    ]
+  }
+  statement {
+    sid       = "S3VectorsQuery"
+    actions   = ["s3vectors:QueryVectors", "s3vectors:GetVectors", "s3vectors:GetIndex"]
+    resources = ["arn:aws:s3vectors:${var.region}:${data.aws_caller_identity.current.account_id}:bucket/${local.dev_prefix}-*/index/*"]
+  }
+}
+
+resource "aws_iam_policy" "dev_boundary" {
+  name   = local.dev_boundary_name
+  policy = data.aws_iam_policy_document.dev_boundary.json
 }
 
 # --- 信頼ポリシー: sub は完全一致のみ (ワイルドカードは使わない) -----------
@@ -137,6 +180,7 @@ data "aws_iam_policy_document" "ci_guardrail" {
       "iam:CreateAccessKey",
       "iam:AttachUserPolicy",
       "iam:PutUserPolicy",
+      "iam:DeleteRolePermissionsBoundary",
       "organizations:*",
       "account:*",
     ]
@@ -281,28 +325,79 @@ data "aws_iam_policy_document" "apply_stack_compute" {
     resources = ["*"]
   }
   statement {
-    # Lambda 実行ロール (llmops-rag-dev-*-role) の管理。llmops-rag-ci-* は guardrail が
-    # 明示 Deny するため、ここで role/${dev_prefix}-* に限定しても自己権限昇格の経路にはならない。
-    sid = "IamManageDevRoles"
+    sid = "IamDevRolesRead"
     actions = [
-      "iam:CreateRole",
-      "iam:DeleteRole",
       "iam:GetRole",
+      "iam:GetRolePolicy",
+      "iam:ListRolePolicies",
+      "iam:ListAttachedRolePolicies",
+      "iam:ListInstanceProfilesForRole",
+    ]
+    resources = [local.dev_role_arn_pattern]
+  }
+  statement {
+    # 新規ロールは必ず permissions boundary 付きで作らせる。boundary 自体は
+    # policy/llmops-rag-ci-* なので guardrail により CI からは変更できない。
+    sid       = "IamDevRolesCreateWithBoundary"
+    actions   = ["iam:CreateRole", "iam:PutRolePermissionsBoundary"]
+    resources = [local.dev_role_arn_pattern]
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PermissionsBoundary"
+      values   = [local.dev_boundary_arn]
+    }
+  }
+  statement {
+    # boundary 付きのロールにしか書き込めない。iam:PermissionsBoundary が条件キーとして
+    # 使えないアクションは、ロールが常に boundary で頭打ちになるため無条件で許可する。
+    sid = "IamDevRolesModifyBounded"
+    actions = [
+      "iam:PutRolePolicy",
+      "iam:DeleteRolePolicy",
+      "iam:DetachRolePolicy",
+    ]
+    resources = [local.dev_role_arn_pattern]
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PermissionsBoundary"
+      values   = [local.dev_boundary_arn]
+    }
+  }
+  statement {
+    sid = "IamDevRolesModify"
+    actions = [
+      "iam:DeleteRole",
       "iam:TagRole",
       "iam:UntagRole",
       "iam:UpdateRole",
       "iam:UpdateAssumeRolePolicy",
-      "iam:PutRolePolicy",
-      "iam:DeleteRolePolicy",
-      "iam:GetRolePolicy",
-      "iam:ListRolePolicies",
-      "iam:ListInstanceProfilesForRole",
-      "iam:AttachRolePolicy",
-      "iam:DetachRolePolicy",
-      "iam:ListAttachedRolePolicies",
-      "iam:PassRole",
     ]
-    resources = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${local.dev_prefix}-*"]
+    resources = [local.dev_role_arn_pattern]
+  }
+  statement {
+    sid       = "IamDevRolesAttachDevPolicies"
+    actions   = ["iam:AttachRolePolicy"]
+    resources = [local.dev_role_arn_pattern]
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PermissionsBoundary"
+      values   = [local.dev_boundary_arn]
+    }
+    condition {
+      test     = "ArnLike"
+      variable = "iam:PolicyARN"
+      values   = ["arn:aws:iam::${data.aws_caller_identity.current.account_id}:policy/${local.dev_prefix}-*"]
+    }
+  }
+  statement {
+    sid       = "IamPassDevRolesToLambda"
+    actions   = ["iam:PassRole"]
+    resources = [local.dev_role_arn_pattern]
+    condition {
+      test     = "StringEquals"
+      variable = "iam:PassedToService"
+      values   = ["lambda.amazonaws.com"]
+    }
   }
   statement {
     # infra/envs/dev の `data "aws_iam_openid_connect_provider" "github"` が
