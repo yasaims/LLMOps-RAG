@@ -11,6 +11,9 @@ class Settings(BaseSettings):
     bedrock_embed_dim: int = 1536
     bedrock_chat_model_id: str = "jp.anthropic.claude-haiku-4-5-20251001-v1:0"
     bedrock_max_tokens: int = 1024
+    # Max seconds spent retrying throttled Bedrock calls (0 = attempt limit only).
+    # Lambda sets this so retries finish before the API Gateway 30 s integration timeout.
+    bedrock_retry_budget_s: float = 0.0
     database_url: str = "postgresql://rag:rag@localhost:5432/rag"
     rag_top_k: int = 5
 

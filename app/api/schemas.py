@@ -4,9 +4,12 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+# Caps embed/chat input tokens per request on the public endpoint.
+MAX_QUESTION_CHARS = 1000
+
 
 class QueryRequest(BaseModel):
-    question: str = Field(min_length=1)
+    question: str = Field(min_length=1, max_length=MAX_QUESTION_CHARS)
     top_k: int | None = Field(default=None, ge=1, le=20)
 
 

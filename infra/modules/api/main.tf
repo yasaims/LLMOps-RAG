@@ -91,6 +91,7 @@ resource "aws_lambda_function" "api" {
       BEDROCK_EMBED_DIM      = tostring(var.bedrock_embed_dim)
       BEDROCK_CHAT_MODEL_ID  = var.bedrock_chat_model_id
       BEDROCK_MAX_TOKENS     = tostring(var.bedrock_max_tokens)
+      BEDROCK_RETRY_BUDGET_S = tostring(var.bedrock_retry_budget_s)
       RAG_TOP_K              = tostring(var.rag_top_k)
       LOG_LEVEL              = var.log_level
       CORS_ALLOW_ORIGINS     = var.cors_allow_origins
