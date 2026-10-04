@@ -6,79 +6,24 @@ Accepted
 
 ## コンテキスト
 
-計画書 §7.5 は「S3 + CloudFront で静的フロントを公開する」ことを想定している。
-バックエンド (`app/config.py` の `cors_allow_origins`) は「Phase 4 のフロント用」として
-CORS 設定を空のまま予約してあった。素直に実装すると、フロント (CloudFront ドメイン) と
-API (execute-api ドメイン) が別オリジンになり、ブラウザからの `fetch` は CORS プリフライト
-(`OPTIONS`) を経由する必要が生じ、Lambda 側にプリフライトのハンドリングと
-`Access-Control-Allow-Origin` の付与が要る。
-
-検討した論点は 3 つ:
-
-### (1) CORS を発生させるか、単一オリジンに見せるか
-
-CloudFront はオリジンごとにパスパターンでルーティングできる (`ordered_cache_behavior`)。
-`/query` と `/healthz` を API Gateway オリジンへ、それ以外を S3 オリジンへ向ければ、
-ブラウザからは常に同一オリジン (CloudFront ドメイン) への呼び出しに見える。
-
-→ **CloudFront 1 ディストリビューションに S3 と API Gateway の 2 オリジンをぶら下げる。**
-`cors_allow_origins` は空のままでよく、`app/api/main.py` の CORS ミドルウェアにも変更は不要。
-
-### (2) S3 バケットの公開方法: 静的ウェブサイトホスティング vs Origin Access Control (OAC)
-
-`aws_s3_bucket_website_configuration` によるパブリック公開は HTTPS 非対応 (S3 ウェブサイト
-エンドポイントは HTTP のみ) で、CloudFront 経由の HTTPS 配信と相性が悪い。
-
-→ **OAC** (`aws_cloudfront_origin_access_control`, signing: sigv4/always) を採用し、
-S3 バケットは `infra/modules/ingestion` の docs バケットと同様に完全非公開のまま、
-バケットポリシーで CloudFront サービスプリンシパルの `GetObject` のみを
-`AWS:SourceArn` (このディストリビューション限定) で許可する。
-
-### (3) API オリジンへのリクエスト転送で Host ヘッダーをどう扱うか
-
-CloudFront のデフォルトのオリジンリクエストポリシーは Host ヘッダーをそのまま転送するが、
-API Gateway の execute-api エンドポイントは CloudFront のドメイン名を Host として受け取ると
-SNI 不一致で 403 を返す。
-
-→ マネージド origin request policy **`Managed-AllViewerExceptHostHeader`** を使い、
-Host 以外の全ヘッダーを転送しつつ Host だけ除外する。
+静的フロントを S3 + CloudFront で公開する。フロントと API (execute-api) が別オリジンだと CORS プリフライト (`OPTIONS`) が必要になり、Lambda 側のハンドリングと `Access-Control-Allow-Origin` 付与が要る。`app/config.py` の `cors_allow_origins` は空のままである。
 
 ## 決定
 
-- `infra/modules/frontend` を新設。S3 (非公開, force_destroy) + OAC + CloudFront
-  (`price_class = "PriceClass_200"`, `wait_for_deployment = false`) を作成
-- default behavior は S3 オリジンへ `Managed-CachingOptimized`。`/query` `/healthz` の
-  ordered behavior は API Gateway オリジンへ `Managed-CachingDisabled` +
-  `Managed-AllViewerExceptHostHeader`
-- 静的ファイル (`web/index.html` / `web/app.js` / `web/style.css`) は `aws_s3_object` で
-  Terraform 管理。`etag = filemd5(...)` により内容変更時のみ再アップロードされる。
-  `terraform-apply.yml` の apply 直後に `aws cloudfront create-invalidation --paths "/*"`
-  を実行し、キャッシュ済みコンテンツを即時反映する (月 1,000 パスまで無料)
-- **SPA 的な 403/404 → `index.html` への書き換え (`custom_error_response`) は入れない**。
-  CloudFront の `custom_error_response` はオリジンを区別せず HTTP ステータスにのみ反応するため、
-  入れると API オリジンが返す 404 (未定義ルート等) まで `index.html` にすり替わり、
-  クライアント側でエラーを判別できなくなる。本サイトはページ遷移のない単一 `index.html`
-  のみなので SPA ルーティングの恩恵も薄く、正しさを優先して見送った
-- フロント (`web/app.js`) は相対パス `fetch("/query")` で呼び出す。429 (スロットリング)
-  を「デモのレート制限」として明示的にハンドリングする
-- 公開に伴い API Gateway のスロットリングを `2 req/s` → **`1 req/s`** (バーストも 5→3) に
-  引き下げた (`infra/envs/dev/variables.tf`)
-- `infra/bootstrap` の apply ロールに CloudFront 権限を追加。`Create*`/`List*`/`Get*` は
-  サービス認可リファレンス上リソースタイプが未定義のため `Resource="*"` が必須で、
-  `Update*`/`Delete*`/`CreateInvalidation` 等は `distribution/*`・`origin-access-control/*`
-  にスコープできる (region セグメントなし)。web バケットは既存の `DocsBucketManage`
-  statement に相乗り (`S3BucketsManage` に改名)。詳細は `docs/iam-permissions.md`
+- **単一オリジン化**: CloudFront 1 ディストリビューションに S3 と API Gateway の 2 オリジンを置く。`ordered_cache_behavior` で `/query` `/healthz` を API Gateway へ、その他を S3 へ振る。`cors_allow_origins` と `app/api/main.py` の CORS ミドルウェアは変更不要
+  - default behavior: S3 + `Managed-CachingOptimized`
+  - `/query` `/healthz`: API Gateway + `Managed-CachingDisabled` + `Managed-AllViewerExceptHostHeader`
+- **S3 は OAC で非公開**: 静的ウェブサイトホスティングは HTTP のみで CloudFront の HTTPS 配信と相性が悪い。`aws_cloudfront_origin_access_control` (sigv4/always) を使い、バケットポリシーで CloudFront の `GetObject` のみを `AWS:SourceArn` (このディストリビューション限定) で許可する
+- **Host ヘッダーは転送しない**: execute-api は CloudFront ドメインを Host として受けると SNI 不一致で 403 を返すため、Host のみ除外するマネージドポリシー `Managed-AllViewerExceptHostHeader` を使う
+- **`custom_error_response` (403/404 → `index.html`) は入れない**: オリジンを区別せず HTTP ステータスにのみ反応するため、API の 404 まで `index.html` にすり替わり、クライアントがエラーを判別できなくなる。単一 `index.html` で SPA ルーティングの利点も薄い
+- `infra/modules/frontend`: S3 (非公開, force_destroy) + OAC + CloudFront (`price_class = "PriceClass_200"`, `wait_for_deployment = false`)
+- 静的ファイル (`web/index.html` / `web/app.js` / `web/style.css`) は `aws_s3_object` で管理し、`etag = filemd5(...)` で変更時のみ再アップロードする。`terraform-apply.yml` が apply 後に `aws cloudfront create-invalidation --paths "/*"` を実行する (月 1,000 パスまで無料)
+- `web/app.js` は相対パス `fetch("/query")` を使い、429 を「デモのレート制限」として明示的に扱う
+- API Gateway のスロットリングを `2 req/s` から **`1 req/s`** (バースト 5 から 3) に下げた (`infra/envs/dev/variables.tf`)
+- `infra/bootstrap` の apply ロールに CloudFront 権限を追加した。`Create*`/`List*`/`Get*` はリソースタイプ未定義で `Resource="*"` が必須、`Update*`/`Delete*`/`CreateInvalidation` 等は `distribution/*`・`origin-access-control/*` にスコープできる。web バケットは既存 statement に相乗りし `S3BucketsManage` に改名した。詳細は `docs/iam-permissions.md`
 
 ## 影響
 
-- **デモ公開に対する乱用対策は「スロットリング (ステージ全体、IP 単位ではない) +
-  Budgets の事後メール通知 + CloudWatch アラーム (ADR 0010 の `api-request-spike`)」の
-  みで、自動遮断の仕組みはまだない**。計画書 §7.5 が想定する
-  「Budgets 超過 → Lambda concurrency=0 の自動停止」は Phase 4 の残タスクとして未着手
-  ([README](../../README.md) のコスト設計セクション参照)。1 req/s のステージ全体上限でも
-  悪意ある連続リクエストは理論上 1 日 86,400 リクエストまで通り得る点に留意する
-- CloudFront ディストリビューションの作成・伝播には数分〜十数分かかる
-  (`wait_for_deployment = false` のため `terraform apply` 自体はブロックしない)。
-  マージ直後は `demo_url` にアクセスしてもしばらく反映されないことがある
-- カスタムドメイン (Route 53 + ACM) は導入していない。`*.cloudfront.net` のデフォルト
-  証明書のみで、HTTPS 自体は有効
+- **乱用対策はスロットリング (ステージ全体、IP 単位ではない)・Budgets の事後メール通知・CloudWatch アラーム ([ADR 0010](0010-observability-dashboard.md) の `api-request-spike`) のみで、自動遮断はしない。** 悪意ある連続リクエストは理論上 1 日 86,400 リクエストまで通り得る。Budgets 超過時の Lambda concurrency=0 自動停止や WAF は未導入
+- ディストリビューションの作成・伝播に数分〜十数分かかる (`wait_for_deployment = false` のため apply はブロックしない)。マージ直後は `demo_url` に反映されないことがある
+- カスタムドメイン (Route 53 + ACM) は無く、`*.cloudfront.net` のデフォルト証明書による HTTPS のみ

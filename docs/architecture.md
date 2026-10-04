@@ -75,7 +75,7 @@ flowchart TB
 ```
 
 - Lambda (コンテナイメージ, x86_64) + API Gateway HTTP API でサーバーレス化 (アイドル時ゼロ円)
-- **ベクトルストアは S3 Vectors** (Aurora Serverless v2 からの変更。[ADR 0005](adr/0005-s3-vectors-for-phase2.md))。
+- **ベクトルストアは S3 Vectors** (Aurora Serverless v2 からの変更。[ADR 0005](adr/0005-s3-vectors-vector-store.md))。
   VPC 不要のため NAT/VPC エンドポイントの常時課金が発生しない
 - 取り込み (embed + PutVectors) はローカル/バッチから実行し、Lambda の実行時パスは
   検索専用 (最小権限の IAM)。[ADR 0006](adr/0006-lambda-container-http-api.md)
@@ -194,7 +194,7 @@ flowchart TB
 | --- | --- | --- |
 | 埋め込み | `cohere.embed-v4:0` (1536次元) | [ADR 0002](adr/0002-embedding-model-selection.md) |
 | 生成 | `jp.anthropic.claude-haiku-4-5-20251001-v1:0` | [ADR 0004](adr/0004-bedrock-inference-profile.md) |
-| ベクトルストア | pgvector (Phase 1) → S3 Vectors (Phase 2) | [ADR 0001](adr/0001-vector-store-selection.md) / [ADR 0005](adr/0005-s3-vectors-for-phase2.md) |
+| ベクトルストア | pgvector (ローカル) / S3 Vectors (AWS) | [ADR 0001](adr/0001-vector-store-selection.md) / [ADR 0005](adr/0005-s3-vectors-vector-store.md) |
 | チャンク分割 | 見出し認識 + スライディングウィンドウ | [ADR 0003](adr/0003-chunking-strategy.md) |
 | 実行基盤 | Lambda (コンテナイメージ) + API Gateway HTTP API | [ADR 0006](adr/0006-lambda-container-http-api.md) |
 | 評価 judge (Phase 3) | `jp.anthropic.claude-haiku-4-5-20251001-v1:0` (回答者と同一) | [ADR 0007](adr/0007-eval-with-ragas-subset.md) |

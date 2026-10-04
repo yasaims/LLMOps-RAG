@@ -46,7 +46,7 @@ Phase 別の詳細な構成図 (ローカル構成 / AWS 構成 / CI-CD / 監視
 | -------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------ |
 | 埋め込み       | `cohere.embed-v4:0` (日本語質問 × 英語原文のクロスリンガル検索)           | [0002](docs/adr/0002-embedding-model-selection.md)                                               |
 | 生成           | `jp.anthropic.claude-haiku-4-5-20251001-v1:0` (推論プロファイル経由)      | [0004](docs/adr/0004-bedrock-inference-profile.md)                                               |
-| ベクトルストア | pgvector (ローカル) / S3 Vectors (AWS、VPC不要でアイドル時ほぼ0円)        | [0001](docs/adr/0001-vector-store-selection.md) / [0005](docs/adr/0005-s3-vectors-for-phase2.md) |
+| ベクトルストア | pgvector (ローカル) / S3 Vectors (AWS、VPC不要でアイドル時ほぼ0円)        | [0001](docs/adr/0001-vector-store-selection.md) / [0005](docs/adr/0005-s3-vectors-vector-store.md) |
 | チャンク分割   | 見出し認識 + スライディングウィンドウ                                     | [0003](docs/adr/0003-chunking-strategy.md)                                                       |
 | 実行基盤       | Lambda (コンテナイメージ) + API Gateway HTTP API                          | [0006](docs/adr/0006-lambda-container-http-api.md)                                               |
 | 評価           | 検索は決定的指標 (recall@k/MRR)、生成は Ragas + Bedrock judge             | [0007](docs/adr/0007-eval-with-ragas-subset.md)                                                  |
@@ -134,7 +134,7 @@ curl "$(terraform -chdir=infra/envs/dev output -raw api_endpoint)healthz"
 ## コスト設計
 
 - Bedrock は従量課金。ベクトルストアは S3 Vectors (VPC 不要、アイドル時ほぼ0円) —
-  [ADR 0005](docs/adr/0005-s3-vectors-for-phase2.md)
+  [ADR 0005](docs/adr/0005-s3-vectors-vector-store.md)
 - Lambda + API Gateway + CloudFront + S3 (web/docs) もアイドル時ほぼゼロ円。
   API Gateway のスロットリング (1 req/s) で乱用を抑制 — [ADR 0011](docs/adr/0011-demo-frontend-cloudfront.md)
 - 評価 (eval) 1 回あたり実測 **$0.65 前後** (25問、`evals/measure_cost.py` で計測。
