@@ -6,7 +6,7 @@ Accepted
 
 ## コンテキスト
 
-本プロジェクトの特徴は、RAG の品質評価を CI に組み込み、劣化があればマージを止めること。
+本プロジェクトの特徴は RAG の品質評価を CI に組み込み、劣化があればマージを止めること。
 PR ごとに実行するため、実行時間・Bedrock 課金・依存の重さがそのままコストになる。
 
 選択肢:
@@ -30,7 +30,7 @@ PR ごとに実行するため、実行時間・Bedrock 課金・依存の重さ
 ### 生成: Ragas の LLM-only 3 指標
 
 `Faithfulness` / `FactualCorrectness` / `LLMContextRecall` を、回答者と同じ Haiku 4.5 (`temperature=0`) で採点し、
-平均を **`generation_score`** として 1 本のゲート対象にする。
+平均を **`generation_score`** として 1 つの判定対象にする。
 
 - embeddings 系メトリクスは使わない (追加課金と torch 依存の回避)
 - 指標ごとに閾値を置くと、LLM judge のばらつきと n=25 の標準誤差で誤検知が多発するため、平均で判定する (許容幅の根拠は [ADR 0009](0009-cicd-quality-gate.md))

@@ -10,8 +10,8 @@ OIDC 認証で terraform による継続的デプロイを安全に実現
 
 ## このプロジェクトの主題
 
-LLM アプリケーションは、プロンプトやチャンク分割などのわずかな変更で回答品質が静かに劣化する。
-本プロジェクトは、その品質リグレッションを **PR の段階で自動評価してマージをブロックする仕組み**を、
+LLM アプリケーションは、プロンプトやチャンク分割などのわずかな変更で回答品質が気づかないうちに劣化する。
+本プロジェクトはその品質リグレッションを **PR の段階で自動評価してマージをブロックする仕組み**を、
 評価パイプラインだけでなく AWS インフラ・CI/CD・監視・コスト管理まで含めて設計・構築したもの。
 
 ## プレビュー
@@ -133,23 +133,23 @@ curl "$(terraform -chdir=infra/envs/dev output -raw api_endpoint)healthz"
 
 ## コスト設計
 
-- Bedrock は従量課金。ベクトルストアは S3 Vectors (VPC 不要、アイドル時ほぼ0円) —
-  [ADR 0005](docs/adr/0005-s3-vectors-vector-store.md)
+- Bedrock は従量課金。ベクトルストアは S3 Vectors (VPC 不要、アイドル時ほぼ0円)。
+  詳細は [ADR 0005](docs/adr/0005-s3-vectors-vector-store.md)
 - Lambda + API Gateway + CloudFront + S3 (web/docs) もアイドル時ほぼゼロ円。
-  API Gateway のスロットリング (1 req/s) で乱用を抑制 — [ADR 0011](docs/adr/0011-demo-frontend-cloudfront.md)
+  API Gateway のスロットリング (1 req/s) で乱用を抑制する。詳細は [ADR 0011](docs/adr/0011-demo-frontend-cloudfront.md)
 - 評価 (eval) 1 回あたり実測 **$0.65 前後** (25問、`evals/measure_cost.py` で計測。
-  内訳は回答生成 $0.09 + judge 3指標 $0.56) — [ADR 0007](docs/adr/0007-eval-with-ragas-subset.md)
+  内訳は回答生成 $0.09 + judge 3指標 $0.56)。詳細は [ADR 0007](docs/adr/0007-eval-with-ragas-subset.md)
 - AWS Budgets + CloudWatch アラーム 5 本 → SNS メール通知
   ([ADR 0010](docs/adr/0010-observability-dashboard.md))
 
 ## 今後の課題
 
-- **コスト超過時の自動停止** — 現状の AWS Budgets + CloudWatch アラームは通知のみ。予算超過時に
-  API を自動停止する仕組み (スロットリング 0 化など) は未実装
-- **検索のトピック取り違えによる誤答** — 検索結果には忠実 (faithfulness 高) なまま誤答する
-  失敗モードがあり、top_k やチャンク分割の見直しを検討中
+- コスト超過時の自動停止は未実装。現状の AWS Budgets + CloudWatch アラームは通知のみで、
+  予算超過時に API を自動停止する仕組み (スロットリング 0 化など) はない
+- 検索がトピックを取り違え、検索結果には忠実 (faithfulness 高) なまま誤答する失敗モードがある。
+  top_k やチャンク分割の見直しを検討中
   ([#6](https://github.com/yasaims/LLMOps-RAG/issues/6))
-- **`factual_correctness` が構造的に低く出る** — 参照解答が質問スコープより広く、
+- `factual_correctness` が構造的に低く出る。参照解答が質問スコープより広く、
   正答でも減点される。データセット生成プロンプトの改善を検討中
   ([#7](https://github.com/yasaims/LLMOps-RAG/issues/7))
 

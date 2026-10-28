@@ -40,9 +40,9 @@ baseline の dataset sha256 が現在のデータセットと一致しない場�
 
 指標を読むときの注意:
 
-- **`recall@5`=0.680 ほど検索は悪くない**。ヒットなし 8 問のうち 6 問は `context_recall`=1.00 で、同じ事実を含む別チャンクが引けていた (原文書の構造的重複、ADR 0007)。実質的な検索失敗は `bedrock-ug-006` (誤答) と部分的な `014` のみ
+- **検索は `recall@5`=0.680 が示すほど悪くない**。ヒットなし 8 問のうち 6 問は `context_recall`=1.00 で、同じ事実を含む別チャンクが引けていた (原文書の構造的重複、ADR 0007)。実質的な検索失敗は `bedrock-ug-006` (誤答) と部分的な `014` のみ
 - ⚠️ **`generation_score` が通っても「全問正しい」とは読めない**。`006` はプロンプトキャッシングの入力トークン合計を問う設問で、検索が別トピック (クォータ burndown) のチャンクを引き、`cacheReadInputTokens` の扱いが gold と逆の誤答になった。回答は検索結果に忠実なので `faithfulness`=0.83 と高く、`faithfulness` では原理的に検出できない。`factual_correctness`=0.00 と `context_recall`=0.33 だけが捉え、平均はこの種の誤りを薄める (issue #6)
-- ⚠️ **`factual_correctness` は構造的に低く出る** (`faithfulness`≈0.94 に対し 0.58〜0.63)。参照解答が gold チャンクの包括的な要約で、質問の範囲より広いため、正答でも未言及分が減点される。「回答の正しさ」より「参照解答の網羅度との一致」を測る (issue #7)
+- ⚠️ **`factual_correctness` は構造的に低く出る** (`faithfulness`≈0.94 に対し 0.58〜0.63)。参照解答が gold チャンクの包括的な要約で、質問の範囲より広いため、正答でも未言及分が減点される。この指標は「回答の正しさ」より「参照解答の網羅度との一致」を測る (issue #7)
 - gold 判定は `content_hash` 一致が 16 問、副判定 (`doc/section` + ページ範囲) が 1 問、ヒットなしが 8 問。副判定は `chunk.py` の window/overlap 変更で全問が偽の不合格になるのを防ぐ保険で、平時の寄与が小さいのは想定どおり
 - `run_eval.py` の「要確認の問い」は打ち切る場合に総数と「… 他 N 問」を必ず出す
 
@@ -78,7 +78,7 @@ ragas は `generate_text()` のたびに `https://t.explodinggradients.com` へ 
 
 ### タイムアウトと暴走防止
 
-- `RunConfig(timeout=600)` 秒。実質使われない安全余裕で、遅延の真因は上記テレメトリだった (呼び出しが最も多い `FactualCorrectness` だけが DNS 待ちで上限を超えていた)
+- `RunConfig` の `timeout` は 600 秒。実質使われない安全余裕で、遅延の真因は上記テレメトリだった (呼び出しが最も多い `FactualCorrectness` だけが DNS 待ちで上限を超えていた)
 - 暴走の歯止めは独立した 2 段: (1) `eval.yml` の job 単位 `timeout-minutes: 30` (未指定だと GitHub 既定の 360 分まで Bedrock 課金が続く)、(2) judge カバレッジ検査 (exit 2)
 - 実行時間の目安は 25 問で約 5 分
 

@@ -16,7 +16,7 @@ Cohere Embed v4 は 100 以上の言語に対応し、日本語クエリ×英語
 **`cohere.embed-v4:0`** (`output_dimension=1536`) を採用する。
 
 - チャンク側は `input_type="search_document"`、クエリ側は `search_query`。
-  **この使い分けは必須** で、揃えると検索精度が落ちる
+  **この使い分けは必須** で、両方に同じ値を使うと検索精度が落ちる
 - `app/bedrock.py` で `embed_documents()` / `embed_query()` を別関数に分け、取り違えを防ぐ
 
 ## 影響

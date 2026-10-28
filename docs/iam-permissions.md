@@ -78,9 +78,9 @@ flowchart TB
 
 ### `llmops-rag-dev-eval-ci` (module `ci-eval`)
 
-- `bedrock:InvokeModel` — Lambda 実行ロールと**完全に同じ ARN** (embed FM + chat 推論プロファイル
+- `bedrock:InvokeModel`: Lambda 実行ロールと**完全に同じ ARN** (embed FM + chat 推論プロファイル
   + そのルーティング先 FM) を `infra/envs/dev/main.tf` が `module.api` の出力からそのまま渡す
-- `s3vectors:QueryVectors` / `GetVectors` / `GetIndex` のみ (`PutVectors` は含めない —
+- `s3vectors:QueryVectors` / `GetVectors` / `GetIndex` のみ (`PutVectors` は含めない。
   取り込みは常にローカル/バッチから行う方針のため)
 
 「eval CI は本番 Lambda が持たない権限では絶対に通らない」ことが ARN 共有によって構造的に
@@ -153,7 +153,7 @@ apply ロールの IAM 権限はもともと `role|policy/llmops-rag-dev-*` に�
      挙動が異なるため、都度リファレンス表の「Resource types」欄を確認すること
    - `iam:GetPolicy` 等: IAM ロール管理 (`role/${dev_prefix}-*`) はあっても IAM **ポリシー**
      管理 (`policy/${dev_prefix}-*`) が抜けていた。`module.ci_eval` が作る
-     customer-managed policy の read/update が全滅していた
+     customer-managed policy の read/update がすべて権限不足で失敗していた
 5. **`simulate-principal-policy` の `--resource-arns` の罠**: リソースレベル権限を持たない
    アカウント全体アクション (`iam:ListOpenIDConnectProviders` など) に `--resource-arns` を
    付けると、実際には許可されていても `implicitDeny` と表示される。この種のアクションは
@@ -177,9 +177,9 @@ apply ロールの IAM 権限はもともと `role|policy/llmops-rag-dev-*` に�
    `GetLogDelivery`/`UpdateLogDelivery`/`DeleteLogDelivery`/`ListLogDeliveries`/
    `PutResourcePolicy`/`DescribeResourcePolicies` が要る。いずれもサービス認可
    リファレンス上 Permission-only actions = リソースタイプ未定義のため `Resource="*"`
-   が必須 (落とし穴 4 の `logs:DescribeLogGroups` と同じ制約)。envs/dev の初回構築が
-   ローカル管理者資格情報で行われていたため、apply ロールが `aws_apigatewayv2_stage`
-   を実際に更新する (`UpdateStage`) のは develop→main の初回 apply が初めてで、
+   が必須 (落とし穴 4 の `logs:DescribeLogGroups` と同じ制約)。envs/dev の初回構築は
+   ローカル管理者資格情報で行ったため、apply ロールが `aws_apigatewayv2_stage`
+   を実際に更新する (`UpdateStage`) のは develop→main の初回 apply が初めてだった。
    このとき `BadRequestException: Insufficient permissions to enable logging` で
    判明した (2026-08)。`logs:CreateLogGroup` は `log-group*` リソースタイプを持つため
    `LogsManage` の `/aws/apigateway/${dev_prefix}-*` で別途カバー済み
@@ -197,8 +197,8 @@ apply ロールの IAM 権限はもともと `role|policy/llmops-rag-dev-*` に�
    で確認。ただし上記の落とし穴 5 に注意 (account-level アクションは `--resource-arns` なしで)
 3. 本命の検証は実際のワークフロー実行。plan ロールの `ReadOnlyAccess` に隠れて apply 側だけ
    足りない権限がある可能性を常に疑うこと (落とし穴 4)
-4. `infra/envs/dev` 側 (`module.ci-eval` や `module.api` の IAM) は通常の CI フロー
-   (`terraform-apply.yml`) で apply されるので、通常の PR プロセスで変更してよい
+4. `infra/envs/dev` 側 (`module.ci_eval` や `module.api` の IAM) は
+   `terraform-apply.yml` で apply されるので、通常の PR で変更してよい
 
 ## 関連ドキュメント
 
